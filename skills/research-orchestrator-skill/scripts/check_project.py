@@ -38,6 +38,7 @@ H_ID = re.compile(r"\bH-[A-Za-z]+-\d+\b")
 D_ID = re.compile(r"\bD-[A-Za-z]+-\d+\b")
 FIELD = re.compile(r"^- ([A-Za-z/() -]+?):\s?(.*)$")
 REVIEW = re.compile(r"^\s+- (.+?) \((\S+)\): (\S+) — ")
+CLAIM = re.compile(r"^(CPU|GPU|Other) — ([A-Z]{1,2}) \((H-[A-Za-z]+-\d+), since (\d{4}-\d{2}-\d{2} \d{2}:\d{2})\)$")
 TAKE_OVER = re.compile(
     r"^took over (H-[A-Za-z]+-\d+) from ([A-Z]{1,2}) \((same host|cross-host:.*?)\) as (H-[A-Za-z]+-\d+)"
 )
@@ -365,6 +366,34 @@ class Checker:
             if disc and disc.fields.get("Cross-check", "").startswith("CHALLENGED"):
                 self.problem("handoff.md", f"Current best cites {disc_id}, which is CHALLENGED")
 
+    def check_compute(self) -> None:
+        value = self.shared.get("Active compute")
+        if value is None:
+            self.problem("handoff.md", "Shared state has no 'Active compute' line (use 'none')")
+            return
+        if value.lower() == "none":
+            return
+        for claim in (part.strip() for part in value.split(";")):
+            match = CLAIM.match(claim)
+            if not match:
+                self.problem("handoff.md", f"Active compute claim '{claim}' must read "
+                                           "'<CPU|GPU|Other> — <Agent> (<H-item>, since YYYY-MM-DD HH:MM)'")
+                continue
+            resource, agent, item_id, _since = match.groups()
+            section = self.handoff_sections.get(agent)
+            if section is None:
+                self.problem("handoff.md", f"{resource} claim names agent {agent}, which has no handoff section", agent)
+                continue
+            if section.fields.get("Current host", "").lower() in FREE_HOSTS:
+                self.problem("handoff.md", f"stale {resource} claim: {agent} is released but still holds it for {item_id}; "
+                                           "anyone may clear it and log the cleanup", agent)
+            item = self.plan_items.get(item_id)
+            if item is None:
+                self.problem("handoff.md", f"stale {resource} claim: {item_id} is no longer in plan.md; "
+                                           "remove the claim when the job's end is recorded", agent)
+            elif item.owner != agent:
+                self.problem("handoff.md", f"{resource} claim by {agent} is for {item_id}, which belongs to {item.owner}", agent)
+
     def check_open_issues(self) -> None:
         value = self.shared.get("Open consistency issues")
         if value is None:
@@ -388,6 +417,7 @@ class Checker:
         self.check_plan_sources()
         self.check_discoveries()
         self.check_current_best()
+        self.check_compute()
         self.check_open_issues()
 
         for note in self.notes:

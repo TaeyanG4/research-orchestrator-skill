@@ -72,7 +72,7 @@ Look for work in this order before going idle:
 
 **Taking over from a same-host slot.** A host is the platform, so this works across sessions and models of the same host. Items queued under a different host normally stay with that host (see the exception below).
 
-- Eligible sources: a slot whose `Current host` equals yours, or a `released`/`unassigned` slot whose latest completed-log event came from your host (or that has no events at all — user-seeded items belong to no host). Never take the item in the owner's `Current thread`.
+- Eligible sources: a slot whose `Current host` equals yours, or a `released`/`unassigned` slot whose latest completed-log event came from your host (or that has no events at all — user-seeded items belong to no host). Never take the item in the owner's `Current thread` or one under an `Active compute` claim.
 - Pick by metadata only: highest `Priority` (ties: lower `Cost`, then higher `Information`) that you can run now.
 - Re-read `plan.md`, then move the block into your own section with your next ID and the old ID in the title: `### H-A-05 — <title> (from H-C-03)`. The old ID is retired.
 - Rescore it, and log `Action: took over H-C-03 from C (same host) as H-A-05` with `Discovery updates: none — take-over, no experiment` in the handoff.
@@ -80,7 +80,7 @@ Look for work in this order before going idle:
 **Cross-host take-over by judgment.** As an exception, you may take over **one** item queued by a different host when all of these hold:
 
 - your own queue, eligible cross-checks, and same-host items are exhausted;
-- the source slot is `released` or `unassigned` — never an active session on another host, and never the owner's `Current thread`;
+- the source slot is `released` or `unassigned` — never an active session on another host, and never an item in the owner's `Current thread` or under an `Active compute` claim;
 - the item has `Priority` ≥ 15 and clearly beats the best new hypothesis you could write now, for a reason you can state in one line;
 - you take only one; after finishing it, start this list again from step 1.
 
@@ -153,6 +153,16 @@ When parallel work is useful, start with two agents (`A`, `B`) and add more only
 - When local CPU and GPU are saturated, use an available `Other` executor only for worthwhile compatible work and only when authorization/quotas permit it.
 - Scale down when memory pressure, I/O contention, duplicated work, or lower throughput appears.
 
+**Claim before you launch.** Before a heavy job, check both the `Active compute` claims in `handoff.md` and the machine's real usage (`nvidia-smi`, task manager, `top`). Add `GPU — <you> (<item>, since <time>)` and launch in the same step; remove the claim in the same step that records the job's end.
+
+**When the resource you need is busy**, do not launch alongside it unless your item is `Parallel: YES` and measured free memory and load clearly fit. Wait, and meanwhile do, in order:
+
+1. your best item that fits an idle resource (or a permitted `Other` executor);
+2. work that needs no heavy compute: a cross-check from another host, preparing the waiting experiment (script, tiny-sample test), analysing results and planning follow-ups, rescoring, the consistency check;
+3. if nothing is left, set `Blocker: waiting for GPU (held by <agent> for <item> since <time>)` and re-check at an interval that matches the running job — not in a tight loop.
+
+**Stale claims.** A claim is stale when its slot is released, its item is gone from `plan.md`, or the job is verifiably not running. Remove your own; clear a released slot's claim and log it; for an active agent's claim, use `Open consistency issues`. Never release your slot while your job still runs.
+
 ## Close a session
 
-Finish completed plan-item migrations, rescore your remaining items, finish or release any cross-check you claimed, update `Resumable state` and `Next action` in your active handoff section, run the consistency check, and set `Current host: released`.
+Finish completed plan-item migrations, rescore your remaining items, finish or release any cross-check you claimed, update `Resumable state` and `Next action` in your active handoff section, run the consistency check, and remove claims for jobs that have ended. If a job you launched is still running, keep its claim and your `Current host` and stop there; otherwise set `Current host: released`.

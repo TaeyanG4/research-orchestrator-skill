@@ -186,7 +186,7 @@ Eligible sources:
 
 Items left by a different host in a released slot normally stay with that host. They can move only through a cross-host take-over by judgment (below), or when the user says so.
 
-Never take the item named in the owner's `Current thread`; that one is in progress.
+Never take the item named in the owner's `Current thread`, nor one that holds an `Active compute` claim; those are in progress even when the owner is doing something else while a job runs.
 
 Steps:
 
@@ -203,7 +203,7 @@ The original owner, on its next re-read of its own section, finds the item gone 
 By default a different host's items stay with that host, so each host keeps an independent line of reasoning. As an exception, you may take over **one** item queued by a different host when your judgment is that it is clearly worth running now. All of these must hold:
 
 1. **Nothing closer is left**: your own queue, eligible cross-checks, and same-host items are exhausted (steps 1–3 above).
-2. **The source slot is idle**: it is `released` or `unassigned`. Never take from a slot whose `Current host` is an active session on another host, and never the owner's `Current thread`.
+2. **The source slot is idle**: it is `released` or `unassigned`. Never take from a slot whose `Current host` is an active session on another host, and never an item in the owner's `Current thread` or under an `Active compute` claim.
 3. **The item is promising**: its `Priority` is at least 15 (out of 24), and it clearly beats the best new hypothesis you could write now. You can state in one line why it is likely to change a decision now — for example, it is a cheap diagnostic that decides whether the remaining items are worth running.
 4. **One item at a time**: take one, finish it, then start this list again from step 1. The source host's other items stay where they are.
 
@@ -307,6 +307,36 @@ Dispatch rules:
 
 Do not launch low-value experiments merely to keep hardware busy. Priority decides **what** is worth running; resource routing decides **where** it runs.
 
+### Claim compute before you launch
+
+`Active compute` in `handoff.md` Shared state is the list of claims on heavy compute. Each claim names the resource, the agent, the plan item, and the start time; claims are separated by `; `:
+
+```text
+- Active compute: GPU — A (H-A-04, since 2026-10-05 18:20); CPU — B (H-B-03, since 2026-10-05 18:05)
+```
+
+Use `none` when nothing heavy is running. The resource is `CPU`, `GPU`, or `Other` (a remote executor such as Kaggle). Work that needs no heavy compute — reading, reviewing, writing code, small smoke tests — needs no claim.
+
+1. Before launching, re-read `handoff.md` and check **both** the claims and the real usage on the machine (for example `nvidia-smi` for GPU memory and load, the task manager or `top` for CPU and RAM). Two sessions can both see an idle GPU; the claim is what stops them from launching together.
+2. Add your claim and launch in the same step.
+3. Remove your claim in the same step that records the job's end — finished, failed, or killed.
+
+### When the resource you need is busy
+
+Do not launch alongside a job that already holds the resource, unless your item is `Parallel: YES` **and** the measured free memory and load clearly fit it; in that case add your own claim next to the existing one. Otherwise wait, and while waiting do the most valuable work that does not need that resource, in this order:
+
+1. **Run on another resource**: your highest-priority item that fits an idle resource (an `EITHER` item on the free device, or an `Other` executor when permitted).
+2. **Work that needs no heavy compute**: claim a cross-check from a different host; prepare the waiting experiment (write the script, test it on a tiny sample); analyse recent results and plan follow-ups; rescore your queue; run the consistency check.
+3. **Nothing useful left**: set `Blocker: waiting for GPU (held by A for H-A-04 since 18:20)` in your active handoff section and check again at an interval that matches the running job's expected length — not in a tight loop.
+
+When the resource frees, clear your `Blocker`, add your claim, and launch.
+
+### Stale claims
+
+A claim is stale when its agent's slot is `released` or `unassigned`, when its item is no longer in `plan.md`, or when the job is verifiably not running. Remove your own stale claims at once. A stale claim held by a released slot may be removed by anyone; log it in your next event (`Action: cleared stale GPU claim of C for H-C-02`). If the claiming agent is still active, do not remove its claim — add it to `Open consistency issues` instead.
+
+Do not release your slot while a job you launched is still running: keep `Current host`, describe the job in `Resumable state`, and keep the claim.
+
 ## 8. Use `handoff.md` as the event log and resume point
 
 `discoveries.md` holds **what is known**; `handoff.md` holds **what happened and where to resume**. Each fact has one home, and the other files point to it instead of repeating it:
@@ -381,6 +411,8 @@ Some changes touch more than one file. Make all parts of the change before doing
 | Take over an item (same host or cross-host) | move the block in `plan.md` → handoff event, with the reason for a cross-host take-over |
 | Add or create a slot | `## Agent:` plan section + `### Agent:` handoff section + `Active agent(s)` |
 | New best result | discovery whose `Implication` starts with `new current best:` → `Current best` in Shared state citing it |
+| Launch a heavy job | claim in `Active compute` → launch |
+| Heavy job ends | record the result (or the failure) → remove the claim from `Active compute` |
 | Queue an item | add it to `plan.md`; any handoff line that names it comes after, never before |
 
 ### Project-wide values live only in Shared state
@@ -404,6 +436,7 @@ It reports, among other things:
 - a finished item still in `plan.md`, a retired `(from H-…)` ID still present, or duplicate IDs;
 - a referenced discovery that does not exist;
 - shared-state lines in `plan.md`, or a `Current best` that is missing its citation or is stale;
+- `Active compute` claims in the wrong format, held by a released slot, or for an item no longer in `plan.md`;
 - `Cross-check` states that do not match their review lines, and claims held by a released slot.
 
 Fix what you own: your own sections, structure (a missing empty section for a listed agent), and Shared state values with a cited discovery. Never invent or delete another agent's items. For a problem in another agent's section, add a line under `Open consistency issues` in Shared state (`- H-B-01 named as queued for B but missing from plan.md (found by A)`); the owner, or the user, resolves it and removes the line. Do not start new work while the checker reports a problem in your own sections. If a report is wrong, record it under `Open consistency issues` with `(disputed — <why>)` and continue; the user settles it.
@@ -417,7 +450,8 @@ Before ending meaningful work:
 3. Finish or release any cross-check you claimed (`REVIEWING` → verdict, or back to `PENDING`).
 4. Update your active handoff section: `Resumable state` and `Next action`.
 5. Run the consistency check and fix your own problems.
-6. Set `Current host: released` so the slot is visibly free for the next session.
+6. Remove your `Active compute` claims for jobs that have ended. If a job you launched is still running, keep its claim and your `Current host`, describe the job in `Resumable state`, and stop here without releasing.
+7. Otherwise set `Current host: released` so the slot is visibly free for the next session.
 
 ## 11. Initialize a project
 

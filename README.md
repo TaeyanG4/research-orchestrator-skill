@@ -242,7 +242,7 @@ IDs embed the owning agent so concurrent agents never collide:
 
 - **Plan follow-ups from every discovery.** Each time an agent records a discovery — a new finding, a negative result, or a cross-check verdict — it decides what to test next: zero, one, or many new plan items, each passing the duplicate check. It also rescores or removes its own items the discovery affects. Zero is a valid answer, but it is logged with a reason: `New plan items: none — <reason>`.
 - **When a queue runs out**, the agent looks for work in this order: re-read its own section → claim a `PENDING` cross-check from another host → take over an item from a same-host slot → cross-host take-over by judgment (one item at most) → derive new hypotheses → note it and release the slot.
-- **Take-over stays within one host by default.** A host is the platform, not the model: two Claude Code sessions on different models are the same host. If `A`'s queue is empty and `C` (same host) still has queued items, `A` moves the highest-priority one into its own section under its own next ID — `H-C-02` becomes `### H-A-04 — … (from H-C-02)` — and logs the move. It never takes the item in the owner's `Current thread`.
+- **Take-over stays within one host by default.** A host is the platform, not the model: two Claude Code sessions on different models are the same host. If `A`'s queue is empty and `C` (same host) still has queued items, `A` moves the highest-priority one into its own section under its own next ID — `H-C-02` becomes `### H-A-04 — … (from H-C-02)` — and logs the move. It never takes the item in the owner's `Current thread` or one under an `Active compute` claim.
 - **Cross-host take-over by judgment.** Items queued by a different host normally stay with that host. As an exception, an agent may take over **one** of them when everything closer is exhausted, the source slot is released (never an active session on another host), the item has `Priority` ≥ 15 and clearly beats any new hypothesis, and the agent logs a one-line reason: `took over H-C-01 from C (cross-host: Codex → Claude Code; reason: …) as H-A-12`. After finishing it, the agent starts the order again. The user can change the floor, forbid this, or approve specific items.
 
 <p align="center">
@@ -432,6 +432,12 @@ Routing order:
 6. Scale down when RAM pressure, I/O contention, duplicated work, or lower throughput appears.
 
 Worker count is not a goal. **Useful throughput is the goal.**
+
+### Claims and waiting for busy compute
+
+- **Claim before you launch.** `Active compute` in handoff Shared state lists who holds which resource: `GPU — A (H-A-04, since 2026-10-05 18:20)`. Before a heavy job, check both the claims and real usage (`nvidia-smi`, task manager); add the claim and launch in one step, and remove it in the step that records the job's end. When two sessions both see an idle GPU, the claim is what stops them from launching together.
+- **Busy resource → wait, but keep working.** Do not launch alongside a job unless the item is `Parallel: YES` and measured free memory and load clearly fit. Meanwhile: run an item that fits an idle resource (or a permitted `Other` executor) → do work that needs no heavy compute (cross-checks, preparing and smoke-testing the waiting experiment, analysis and follow-up planning, rescoring) → only if nothing is left, record `Blocker: waiting for GPU (held by A …)` and re-check at an interval that matches the running job.
+- **Stale claims.** A claim held by a released slot, or for an item no longer in `plan.md`, is stale; the checker reports it. A session never releases its slot while its own job is still running.
 
 ---
 
