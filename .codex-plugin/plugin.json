@@ -3,27 +3,21 @@
   "version": "1.0.0",
   "description": "Hypothesis-driven research orchestration with scored plans, independent discovery review, adaptive workers, resource-aware execution, and durable handoffs.",
   "author": {
-    "name": "TaeyanG4"
+    "name": "TaeyanG4",
+    "url": "https://github.com/TaeyanG4"
   },
   "homepage": "https://github.com/TaeyanG4/research-orchestrator-skill",
   "repository": "https://github.com/TaeyanG4/research-orchestrator-skill",
   "license": "MIT",
-  "keywords": [
-    "research",
-    "multi-agent",
-    "hypothesis",
-    "experiments",
-    "handoff",
-    "peer-review"
-  ],
+  "keywords": ["research", "multi-agent", "hypothesis", "experiments", "handoff", "peer-review"],
   "skills": "./skills/",
   "interface": {
     "displayName": "Research Orchestrator",
-    "shortDescription": "Prioritize, run, review, and resume multi-agent research.",
-    "longDescription": "Coordinate hypothesis-driven research with scored per-agent queues, independent discovery verdicts, adaptive workers, resource-aware execution, and durable handoff history.",
+    "shortDescription": "Orchestrate agent research",
+    "longDescription": "Coordinate hypothesis-driven research with scored per-agent queues, independent CLOSED/HOLD/CHALLENGED discovery verdicts, adaptive workers, resource-aware CPU/GPU/Other execution, and durable handoff history.",
     "developerName": "TaeyanG4",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": ["Prioritize hypotheses", "Review discoveries", "Route experiments", "Resume research"],
     "websiteURL": "https://github.com/TaeyanG4/research-orchestrator-skill",
     "defaultPrompt": [
       "Initialize Research Orchestrator for this project.",
