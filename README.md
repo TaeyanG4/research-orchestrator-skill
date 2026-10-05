@@ -1,20 +1,21 @@
 <p align="center">
-  <img src="assets/readme/hero.webp" alt="Research Orchestrator" width="100%">
+  <img src="assets/readme/hero.svg" alt="Research Orchestrator — hypothesis-driven research across sessions and hosts, coordinated through agents.md, plan.md, discoveries.md, and handoff.md" width="100%">
 </p>
 
 # Research Orchestrator
 
 A lightweight, hypothesis-driven research workflow for one or many AI agent sessions.
 
-It deliberately uses only **four shared Markdown files** while adding a scored hypothesis queue, independent per-agent review, adaptive workers, and CPU/GPU/Other resource routing.
+It deliberately uses only **four shared Markdown files** while adding a scored hypothesis queue, one-time cross-host verification, adaptive workers, and CPU/GPU/Other resource routing.
 
 ## Why use it?
 
 - Resume long-running research across fresh sessions.
 - Let multiple agents explore independently without sharing unfinished plans.
 - Keep `plan.md` small by removing completed work.
+- Never queue the same idea twice: failed hypotheses are recorded as negative discoveries, and every new item is checked against discoveries, the handoff log, and other agents' queues.
 - Turn experiment results into reusable shared discoveries.
-- Re-check another agent's conclusion instead of inheriting it automatically.
+- Have a different host check each finding once — Codex's discovery is verified by Claude Code, and vice versa — instead of every session re-reviewing it.
 - Preserve promising but incomplete findings with `HOLD`.
 - Re-open discoveries as stronger hypotheses with explicit evidence and improvements.
 - Scale from two workers to the machine's practical full load.
@@ -23,7 +24,7 @@ It deliberately uses only **four shared Markdown files** while adding a scored h
 
 ```mermaid
 flowchart LR
-    D[DISCOVERIES<br/>shared evidence<br/>CLOSED / HOLD / CHALLENGED]
+    D[DISCOVERIES<br/>shared evidence<br/>cross-checked once by another host]
     H[New hypotheses<br/>Sources + Evidence + Improvement]
     P[PLAN<br/>scored live queue]
     W[Adaptive workers<br/>CPU / GPU / Other]
@@ -57,7 +58,7 @@ flowchart TD
 | --- | --- |
 | `agents.md` | Stable rules for reading, editing, scoring, review, and resource routing. |
 | `plan.md` | **Only active unfinished work.** Each agent owns its own section and works from a scored queue. |
-| `discoveries.md` | Shared reusable findings. Every agent reads it and records its own `CLOSED`, `HOLD`, or `CHALLENGED` verdict. |
+| `discoveries.md` | Shared reusable findings. Every agent reads it; each finding is cross-checked once by a different host. |
 | `handoff.md` | Operational history, resumable state, artifacts, metrics, blockers, and next actions. |
 
 Completed items **leave `plan.md`**. Their execution history goes to `handoff.md`, reusable knowledge goes to `discoveries.md`, and follow-up hypotheses return to `plan.md` with fresh scores.
@@ -176,13 +177,48 @@ Initialize the four project files:
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 ```
 
-Start with multiple independent agents:
+Start with multiple independent agents (`2` → `Main, A`):
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents A,B
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
 ```
 
-The initializer creates missing files only. Existing project files are never overwritten.
+`--agents` also accepts an explicit list such as `Main,A,B`. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files.
+
+## Agent names
+
+An agent name is a **work slot**, not the tool or model running it. Every host — Claude Code, Codex, Antigravity — uses the same names:
+
+```text
+Main, A, B, C, ... Z, AA, AB, ... ZZ
+```
+
+- Single-agent work always uses `Main`; each additional concurrent session takes the next unused letter, continuing with two-letter names after `Z`. Released slots are reused first, so new letters appear only when every existing slot is taken at once.
+- Never name an agent `Claude`, `Codex`, `GPT`, `Gemini`, or any other host/model name.
+- Any host may resume any slot. Which host owns a slot is recorded in `handoff.md`, not in the name:
+
+```markdown
+### Agent: Main
+- Current host: Claude Code
+- Current thread: H-Main-04
+...
+
+### Agent: A
+- Current host: Codex
+- Current thread: H-A-02
+...
+```
+
+A slot is free when `Current host` reads `unassigned` or `released`. A new session takes the first free slot in order, sets `Current host` to its own host, and sets it back to `released` when it closes — so liveness is read from the file, never guessed.
+
+Each completed-log event also records its `Host`, so the history shows which host did each step even after a slot changes hands.
+
+IDs embed the owning agent so concurrent agents never collide:
+
+| Object | Format | Examples |
+| --- | --- | --- |
+| Plan item | `H-<Agent>-<NN>` | `H-Main-01`, `H-A-07` |
+| Discovery | `D-<Agent>-<NNN>` | `D-Main-001`, `D-B-014` |
 
 ## Reading rule
 
@@ -195,7 +231,7 @@ agents.md
 → only its own detailed PLAN section
 ```
 
-Agents do **not** read another active agent's detailed PLAN just to coordinate work.
+Agents do **not** read another active agent's detailed PLAN just to coordinate work. The only cross-section peeks are a dispatcher reading task metadata, the duplicate check reading item headings and `Hypothesis` lines, and a new session reading `Current host` lines to find a free slot.
 
 ---
 
@@ -204,10 +240,10 @@ Agents do **not** read another active agent's detailed PLAN just to coordinate w
 Keep only active unfinished items.
 
 ```markdown
-### H-B07 — Separate duplicate leakage from group leakage
-- Sources: D-014, D-021
+### H-Main-07 — Separate duplicate leakage from group leakage
+- Sources: D-A-014, D-Main-021
 - Hypothesis: exact duplicates explain most apparent group leakage
-- Evidence: D-014 weakens after deduplication; D-021 identifies repeated rows
+- Evidence: D-A-014 weakens after deduplication; D-Main-021 identifies repeated rows
 - Improvement: isolate exact duplicates before constructing candidate groups
 - Impact: 3
 - Information: 3
@@ -240,48 +276,78 @@ When a discovery returns to PLAN, these fields are mandatory:
 
 Do not simply rerun an old idea under a new task ID.
 
+### Duplicate check before adding an item
+
+1. Search `discoveries.md`, including negative results — a failed hypothesis is always recorded there as `Finding: <claim> does not hold under <conditions>`. Skip `VERIFIED` claims unless you have a real `Improvement`; skip `CHALLENGED` ones until resolved.
+2. Search the completed log in `handoff.md` and `docs/` for a prior attempt, and cite it.
+3. Scan the other agents' plan sections, reading **only** item headings and `Hypothesis` lines. If it is already queued, do not add it.
+4. Re-read `plan.md` right before writing; if the same item appeared meanwhile, keep the earlier one.
+
 ---
 
 # Standard DISCOVERIES format
 
 ```markdown
-## D-014 — Random CV may leak groups
-- Source: Agent A
+## D-A-014 — Random CV may leak groups
+- Source: A
+- Host: Codex
+- Cross-check: HOLD
 - Finding: duplicated groups cross random folds
 - Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027
 - Implication: current validation may be optimistic
 - Reviews:
-  - Agent A: CLOSED — source experiment consistently reproduces the effect
-  - Agent B: HOLD — plausible, but exact duplicates must be separated first
-  - Agent C: CHALLENGED — effect disappears after a deduplication control
+  - Claude Code (Main): HOLD — plausible, but exact duplicates must be separated first
 ```
 
-Per-agent verdicts:
+Verification is per **host**, not per agent. A discovery made on Codex is checked **once** by Claude Code (or another different host), and vice versa. Sessions on the same host share the same blind spots, so they do not re-review each other — ten Claude Code sessions never review the same finding ten times.
 
-- `CLOSED` — this agent currently accepts the finding after meaningful review.
-- `HOLD` — promising or plausible, but more evidence or a specific improvement is needed.
-- `CHALLENGED` — this agent found a material contradiction, flaw, or missing assumption.
-- no entry — this agent has not reviewed it.
+<p align="center">
+  <img src="assets/readme/cross-host-check.svg" alt="Slot Main on Claude Code cross-checks D-A-003 from Codex and marks it VERIFIED; slot A on Codex has claimed D-Main-002 from Claude Code; slot B is released and free for reuse" width="100%">
+</p>
 
-There is **no global CLOSED**. Agent A's `CLOSED` does not automatically become Agent B's conclusion.
+```mermaid
+flowchart LR
+    N[New discovery<br/>Host: Codex] --> P[Cross-check: PENDING]
+    P -->|a Claude Code session claims it| R[REVIEWING Claude Code]
+    R -->|CLOSED| V[VERIFIED]
+    R -->|HOLD| H[HOLD]
+    R -->|CHALLENGED| C[CHALLENGED]
+    H -->|source adds evidence| P
+    C -->|source revises| P
+```
 
-A `HOLD` review should state what evidence, condition, or improvement would make the discovery worth revisiting.
+`Cross-check` states:
+
+- `PENDING` — no different host has reviewed it yet.
+- `REVIEWING <Host> (<Agent>)` — a different-host session claimed the review, so nobody else duplicates it.
+- `VERIFIED` — a different host reviewed it and recorded `CLOSED`.
+- `HOLD` — plausible, but specific evidence or an improvement is needed first.
+- `CHALLENGED` — a material contradiction, flaw, or missing assumption was found.
+
+Rules:
+
+- The source never reviews its own discovery, and same-host sessions do not review each other.
+- One cross-host review is enough; add another only for high-impact or disputed findings.
+- `HOLD` and `CHALLENGED` reviews must state what would make the discovery acceptable. When the source revises it, `Cross-check` returns to `PENDING`.
+- `VERIFIED` discoveries may be used freely. Building on an unverified one must be stated in the plan item's `Evidence`; `CHALLENGED` ones are not used until resolved.
+- With only one host available, a different slot on the same host may cross-check, starting its reason with `same host —`.
 
 ---
 
 # Standard HANDOFF format
 
 ```markdown
-### 2026-10-05 21:10 — Agent B — H-B07
-- Action: removed exact duplicates and rebuilt group candidates
+### 2026-10-05 21:10 — Main — H-Main-07
+- Host: Claude Code
+- Action: cross-checked D-A-014; removed exact duplicates and rebuilt group candidates
 - Result: random/group CV gap shrank from 0.0135 to 0.0041
 - Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-014, D-028
-- Review verdict: B:HOLD
+- Discovery updates: D-A-014, D-Main-003
+- Review verdict: D-A-014 HOLD
 - Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
-- New plan items: H-B08, H-B09
+- New plan items: H-Main-08, H-Main-09
 - Next resumable action: test near-duplicate clusters
 ```
 
@@ -291,7 +357,7 @@ When `handoff.md` becomes hard to scan, archive older completed entries under `d
 
 # Adaptive workers and compute routing
 
-Start with **two workers** when parallelism is useful. Add workers only while independent high-value work and actual resource headroom remain.
+Start with **two workers** (`Main`, `A`) when parallelism is useful. Add workers only while independent high-value work and actual resource headroom remain.
 
 Each PLAN item declares:
 
@@ -326,6 +392,7 @@ Worker count is not a goal. **Useful throughput is the goal.**
 research-orchestrator-skill/
 ├── README.md
 ├── LICENSE
+├── .gitignore
 ├── plugin.json
 ├── .agents/plugins/marketplace.json
 ├── .claude-plugin/
@@ -333,7 +400,9 @@ research-orchestrator-skill/
 │   └── marketplace.json
 ├── .codex-plugin/plugin.json
 ├── assets/readme/
-│   └── hero.webp
+│   ├── hero.svg
+│   └── cross-host-check.svg
+├── scripts/validate_release.py
 └── skills/
     └── research-orchestrator-skill/
         ├── SKILL.md
@@ -352,10 +421,11 @@ research-orchestrator-skill/
 - **Minimal shared state** — four coordination documents, no per-agent folder hierarchy.
 - **Independent exploration** — unfinished agent plans remain separated.
 - **Shared evidence** — completed findings flow through discoveries.
-- **Per-agent judgment** — `CLOSED`, `HOLD`, and `CHALLENGED` are independent verdicts.
+- **Cross-host verification** — each discovery is checked once by a different host, not by every session.
 - **Live queue only** — completed work does not accumulate in PLAN.
 - **Evidence-backed retries** — returning discoveries state evidence and improvements.
 - **Adaptive concurrency** — worker count follows useful work and compute headroom.
+- **Host-agnostic agents** — `Main`, `A`, `B`, ... are slots any host can resume; hosts are recorded in handoff.
 - **Safe shared edits** — re-read before patching shared files.
 
 # Validation
@@ -368,14 +438,14 @@ python scripts/validate_release.py
 
 A release should pass all of these checks:
 
+- Plugin and marketplace manifests parse as valid JSON and share one version.
+- No legacy skill name remains.
 - Skill frontmatter contains only `name` and `description`.
-- PLAN fields match the template exactly.
-- DISCOVERIES uses only `CLOSED`, `HOLD`, `CHALLENGED`, or no review.
-- HANDOFF uses the documented event fields.
-- Resource metadata uses `CPU`, `GPU`, `EITHER`, and `Other`.
-- No legacy `context-continuity` naming remains.
-- Initializer never overwrites existing project files.
-- Plugin and marketplace manifests parse as valid JSON.
+- PLAN, DISCOVERIES, and HANDOFF examples in README, SKILL.md, and templates use the exact field order.
+- Discoveries record their `Host` and a valid `Cross-check` state; reviews use `<Host> (<Agent>)` with `CLOSED`, `HOLD`, or `CHALLENGED`, and never come from the source host (unless marked `same host —`).
+- Resource values are `CPU`/`GPU`/`EITHER` in PLAN and `CPU`/`GPU`/`Other`/`none` in HANDOFF.
+- Agent names are `Main`, `A`-`Z`, or `AA`-`ZZ`; IDs follow `H-<Agent>-NN` and `D-<Agent>-NNN`.
+- Initializer writes LF files, rejects duplicate or non-standard agent names, and never overwrites existing project files.
 
 # License
 
@@ -383,7 +453,7 @@ MIT.
 
 ## Host documentation
 
-- Claude Code plugin installation: https://docs.anthropic.com/
+- Claude Code plugins: https://docs.claude.com/en/docs/claude-code/plugins
 - OpenAI plugin packaging and marketplaces: https://developers.openai.com/plugins/build/plugins
 - Codex skills: https://developers.openai.com/blog/eval-skills
 - Google Antigravity Skills: https://codelabs.developers.google.com/getting-started-with-antigravity-skills

@@ -1,6 +1,6 @@
 {
   "name": "research-orchestrator",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Hypothesis-driven research orchestration with scored plans, independent discovery review, adaptive workers, resource-aware execution, and durable handoffs.",
   "author": {
     "name": "TaeyanG4",
@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "Research Orchestrator",
     "shortDescription": "Orchestrate agent research",
-    "longDescription": "Coordinate hypothesis-driven research with scored per-agent queues, independent CLOSED/HOLD/CHALLENGED discovery verdicts, adaptive workers, resource-aware CPU/GPU/Other execution, and durable handoff history.",
+    "longDescription": "Coordinate hypothesis-driven research with scored per-agent queues, discoveries cross-checked once by a different host, adaptive workers, resource-aware CPU/GPU/Other execution, and durable handoff history.",
     "developerName": "TaeyanG4",
     "category": "Productivity",
     "capabilities": ["Prioritize hypotheses", "Review discoveries", "Route experiments", "Resume research"],

@@ -9,29 +9,34 @@ Everything operational is recorded here. Keep unfinished agent-specific detail i
 - Active compute: none
 - Important shared artifacts/metrics: none yet
 
+Agent names are work slots (`Main`, `A`, `B`, ...), never host or model names. A new concurrent session takes the next unused name and adds it to `Active agent(s)`.
+
 ## Active handoff — Agent sections
 
 Each research agent reads and edits only its own active handoff section. Do not copy another agent's unfinished plan here.
+
+`Current host` records which host (Claude Code, Codex, Antigravity, ...) currently owns the slot. A slot is free when it reads `unassigned` or `released`. Set it to your host when you take or resume the slot, and to `released` when you close the session. A new session may read only this line of other agents' sections, to find a free slot.
 
 {{HANDOFF_AGENT_SECTIONS}}
 
 ## Completed / review log
 
-All agents may read this shared log. Append completed work, meaningful resource-routing changes, and discovery-review events here.
+All agents may read this shared log. Append completed work, meaningful resource-routing changes, and discovery-review events here. Entries are append-only.
 
 Use this exact format:
 
 ```markdown
-### YYYY-MM-DD HH:MM — Agent A — H-A01
+### YYYY-MM-DD HH:MM — Main — H-Main-01
+- Host: Claude Code | Codex | Antigravity | <other>
 - Action: ...
 - Result: ...
 - Evidence: ...
-- Discovery updates: D-001 / none
-- Review verdict: A:CLOSED | A:HOLD | A:CHALLENGED | none
+- Discovery updates: D-Main-001 / none
+- Review verdict: <discovery ID> CLOSED | HOLD | CHALLENGED / none
 - Files/metrics: ...
 - Resource: CPU | GPU | Other | none
 - Other executor: Kaggle / none
-- New plan items: H-A02, H-A03 / none
+- New plan items: H-Main-02, H-Main-03 / none
 - Next resumable action: ...
 ```
 

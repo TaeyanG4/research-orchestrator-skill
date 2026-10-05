@@ -1,6 +1,10 @@
 # {{PROJECT_NAME}} — Plan
 
-Keep only active unfinished work here. Completed work moves to `handoff.md` and, when reusable, `discoveries.md`.
+Keep only active unfinished work here. Completed work moves to `handoff.md` and to `discoveries.md` (always for a failed hypothesis, otherwise when reusable).
+
+Each agent edits only its own `## Agent: <name>` section. Plan item IDs use `H-<Agent>-<NN>`, for example `H-Main-01` or `H-A-07`.
+
+Before adding an item, confirm it is not already settled in `discoveries.md` (including negative results), already attempted in the `handoff.md` log, or already queued under another agent (check headings and `Hypothesis` lines only). A repeat needs a real `Improvement` and a citation of the earlier ID.
 
 Priority formula:
 
@@ -13,8 +17,8 @@ All factors are 0-3. Cost is 0 for cheap and 3 for expensive.
 Use this exact item format:
 
 ```markdown
-### H-A01 — Short title
-- Sources: D-001, D-004 / none
+### H-Main-01 — Short title
+- Sources: D-A-001, D-Main-004 / none
 - Hypothesis: ...
 - Evidence: ...
 - Improvement: ...

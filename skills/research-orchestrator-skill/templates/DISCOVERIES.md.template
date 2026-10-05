@@ -2,29 +2,44 @@
 
 Shared reusable findings live here. Every agent reads this file.
 
-A discovery has no single global final state. Each agent records its own review verdict.
+Verification is per **host**, not per agent: a discovery made on one host (for example Codex) is cross-checked **once** by a different host (for example Claude Code). Sessions on the same host do not re-review each other.
+
+Discovery IDs use `D-<Agent>-<NNN>`, numbered by the agent that creates the discovery, for example `D-Main-001` or `D-A-014`.
 
 Use this exact format:
 
 ```markdown
-## D-001 — Short title
-- Source: Agent A
+## D-A-001 — Short title
+- Source: A
+- Host: Codex
+- Cross-check: VERIFIED
 - Finding: ...
 - Evidence: ...
 - Implication: ...
 - Reviews:
-  - Agent A: CLOSED — source experiment supports the finding
-  - Agent B: HOLD — promising, but needs stronger evidence on ...
-  - Agent C: CHALLENGED — found contradictory evidence in ...
+  - Claude Code (Main): CLOSED — reproduced independently with ...
 ```
 
-Verdicts:
+`Cross-check` states:
 
-- `CLOSED`: this agent currently accepts the finding after meaningful review.
-- `HOLD`: this agent sees plausible value but needs more evidence, a condition change, or a specific improvement before accepting or rejecting it.
-- `CHALLENGED`: this agent found a material problem, contradiction, or missing assumption.
-- no review entry: this agent has not reviewed it yet.
+- `PENDING`: no different host has reviewed it yet. New discoveries start here, with an empty `Reviews:` list.
+- `REVIEWING <Host> (<Agent>)`: a different-host session has claimed the review.
+- `VERIFIED`: a different host reviewed it and recorded `CLOSED`.
+- `HOLD`: a different host needs specific evidence, a condition change, or an improvement first.
+- `CHALLENGED`: a host found a material contradiction, flaw, or missing assumption.
 
-Another agent's `CLOSED` never becomes your verdict automatically. Review discoveries that materially affect your work, then add your own verdict.
+Rules:
+
+- The source does not review its own discovery.
+- Review only discoveries whose `Host` differs from yours and whose `Cross-check` is `PENDING` (or `HOLD` when its condition is now met). Claim it first with `REVIEWING <your host> (<your agent>)`.
+- One cross-host review is enough; add another only for high-impact or disputed discoveries.
+- Review lines use `<Host> (<Agent>): CLOSED | HOLD | CHALLENGED — reason`. `HOLD` and `CHALLENGED` must say what would make the discovery acceptable.
+- When the source revises a `HOLD` or `CHALLENGED` discovery, it updates `Evidence`, keeps the old reviews, and resets `Cross-check` to `PENDING`.
+- If only one host is available, a different slot on the same host may cross-check; begin its reason with `same host —`.
+- Use `VERIFIED` discoveries freely. A plan item built on a `PENDING`, `REVIEWING`, or `HOLD` discovery must say so in its `Evidence`. Do not build on `CHALLENGED` discoveries until resolved.
+
+Negative results are discoveries too. When a hypothesis fails or is disproved, record it here (`Finding: <claim> does not hold under <conditions>`) so no agent proposes it again. Before adding a plan item, every agent searches this file first.
 
 A discovery may generate many plan hypotheses, and one hypothesis may combine many discoveries. When moving an idea back into `plan.md`, always include the source IDs plus the concrete `Evidence` and `Improvement` that justify the new attempt.
+
+Do not archive this file merely because it grows; merge duplicate discoveries instead.

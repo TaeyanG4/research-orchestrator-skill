@@ -5,17 +5,47 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import string
 import sys
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = SKILL_ROOT / "templates"
 
+# Agent names are work slots, assigned in this order: Main, A ... Z, AA ... ZZ.
+AGENT_ORDER = [
+    "Main",
+    *string.ascii_uppercase,
+    *(a + b for a in string.ascii_uppercase for b in string.ascii_uppercase),
+]
+
 
 def parse_agents(raw: str | None) -> list[str]:
-    if not raw:
+    """Return canonical agent names from a count ("3") or a list ("Main,A,B")."""
+    if not raw or not raw.strip():
         return ["Main"]
-    names = [item.strip() for item in raw.split(",") if item.strip()]
+    raw = raw.strip()
+    if raw.isdigit():
+        count = int(raw)
+        if not 1 <= count <= len(AGENT_ORDER):
+            raise ValueError(f"agent count must be between 1 and {len(AGENT_ORDER)}")
+        return AGENT_ORDER[:count]
+
+    canonical = {name.lower(): name for name in AGENT_ORDER}
+    names: list[str] = []
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        name = canonical.get(item.lower())
+        if name is None:
+            raise ValueError(
+                f"invalid agent name '{item}': use Main, a letter A-Z, or two letters AA-ZZ, "
+                "never a host or model name such as Claude, Codex, or GPT"
+            )
+        if name in names:
+            raise ValueError(f"duplicate agent name '{name}'")
+        names.append(name)
     return names or ["Main"]
 
 
@@ -35,6 +65,7 @@ def handoff_agent_sections(names: list[str]) -> str:
     for name in names:
         blocks.append(
             f"### Agent: {name}\n"
+            "- Current host: unassigned\n"
             "- Current thread: none yet\n"
             "- Resumable state: read discoveries, then your own plan section\n"
             "- Blocker: none\n"
@@ -54,7 +85,7 @@ def write_if_missing(path: Path, content: str) -> str:
     if path.exists():
         print(f"[SKIP] {path}")
         return "skip"
-    path.write_text(content, encoding="utf-8")
+    path.write_text(content, encoding="utf-8", newline="\n")
     print(f"[CREATE] {path}")
     return "create"
 
@@ -63,16 +94,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Initialize Research Orchestrator files.")
     parser.add_argument("target", nargs="?", default=".", help="Project directory")
     parser.add_argument("-n", "--name", help="Project name (defaults to directory name)")
-    parser.add_argument("--agents", help="Comma-separated agent names, e.g. A,B")
+    parser.add_argument(
+        "--agents",
+        help="Agent count (e.g. 2 -> Main,A) or comma-separated names from Main, A-Z, AA-ZZ",
+    )
     args = parser.parse_args()
 
     target = Path(args.target).resolve()
     if not target.is_dir():
-        print(f"Error: target directory does not exist: {target}")
+        print(f"Error: target directory does not exist: {target}", file=sys.stderr)
         return 1
 
+    try:
+        agents = parse_agents(args.agents)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
     name = args.name or target.name
-    agents = parse_agents(args.agents)
     values = {
         "{{PROJECT_NAME}}": name,
         "{{AGENT_NAMES}}": ", ".join(agents),
