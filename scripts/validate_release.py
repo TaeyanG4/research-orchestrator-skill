@@ -43,13 +43,24 @@ HANDOFF_FIELDS = [
     "Other executor", "New plan items", "Next resumable action",
 ]
 
+READMES = {
+    "README.md": "English",
+    "README.ko.md": "한국어",
+    "README.zh-CN.md": "简体中文",
+    "README.ja.md": "日本語",
+}
+EXAMPLE = ROOT / "examples" / "cv-leakage-study"
+# Must match how the example was generated.
+EXAMPLE_INIT_ARGS = ["-n", "CV Leakage Study", "--agents", "3"]
+
 DOCS = [
-    ROOT / "README.md",
+    *(ROOT / name for name in READMES),
     SKILL / "SKILL.md",
     TEMPLATES / "AGENTS.md.template",
     TEMPLATES / "PLAN.md.template",
     TEMPLATES / "DISCOVERIES.md.template",
     TEMPLATES / "HANDOFF.md.template",
+    *(EXAMPLE / name for name in ("agents.md", "plan.md", "discoveries.md", "handoff.md")),
 ]
 
 FIELD_LINE = re.compile(r"^- ([A-Za-z/ -]+):(.*)$")
@@ -98,6 +109,20 @@ def check_resource(value: str | None, allowed: set[str], where: str, errors: lis
         errors.append(f"{where}: Resource '{value}' uses values outside {sorted(allowed)}")
 
 
+def check_priority(fields: list[str], where: str, errors: list[str]) -> None:
+    """When every factor is a concrete score, Priority must match the formula."""
+    names = ["Impact", "Information", "Confidence", "Unblock", "Diversity", "Cost", "Priority"]
+    values = [field_value(fields, name) or "" for name in names]
+    if not all(value.isdigit() for value in values):
+        return
+    impact, information, confidence, unblock, diversity, cost, priority = map(int, values)
+    if any(score > 3 for score in (impact, information, confidence, unblock, diversity, cost)):
+        errors.append(f"{where}: scores must be 0-3")
+    expected = 2 * impact + 2 * information + confidence + unblock + diversity + (3 - cost)
+    if priority != expected:
+        errors.append(f"{where}: Priority {priority} != formula result {expected}")
+
+
 def check_doc(path: Path, errors: list[str]) -> None:
     rel = path.relative_to(ROOT)
     text = path.read_text(encoding="utf-8")
@@ -108,6 +133,7 @@ def check_doc(path: Path, errors: list[str]) -> None:
         if field_names(fields) != PLAN_FIELDS:
             errors.append(f"{where}: PLAN fields {field_names(fields)} != {PLAN_FIELDS}")
         check_resource(field_value(fields, "Resource"), PLAN_RESOURCES, where, errors)
+        check_priority(fields, where, errors)
 
     for match, fields in blocks(lines, DISCOVERY_HEAD):
         where = f"{rel}: {match.group(1)}"
@@ -225,26 +251,60 @@ def check_legacy_name(errors: list[str]) -> None:
                 errors.append(f"legacy name remains: {path.relative_to(ROOT)}")
 
 
-def check_readme_images(errors: list[str]) -> None:
-    text = (ROOT / "README.md").read_text(encoding="utf-8")
-    for ref in re.findall(r'<img[^>]+src="([^"]+)"|!\[[^\]]*\]\(([^)\s]+)', text):
-        src = next(part for part in ref if part)
-        if "://" in src:
-            continue
-        path = ROOT / src
-        if not path.is_file():
-            errors.append(f"README image missing: {src}")
-        elif path.suffix == ".svg":
-            try:
-                ElementTree.parse(path)
-            except ElementTree.ParseError as exc:
-                errors.append(f"README image is not valid SVG: {src}: {exc}")
+def readme_shape(text: str) -> tuple[int, int, list[str]]:
+    """Structure that every translation must share with the English README."""
+    images = re.findall(r'<img[^>]+src="([^"]+)"', text)
+    return text.count("```"), len(re.findall(r"```mermaid", text)), images
 
 
-def run_init(target: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def check_readmes(errors: list[str]) -> None:
+    english_shape = readme_shape((ROOT / "README.md").read_text(encoding="utf-8"))
+    for name, label in READMES.items():
+        text = (ROOT / name).read_text(encoding="utf-8")
+
+        # Language switcher: own language in bold, every other README linked.
+        if f"<b>{label}</b>" not in text:
+            errors.append(f"{name}: language switcher must show <b>{label}</b>")
+        for other in READMES:
+            if other != name and f'href="{other}"' not in text:
+                errors.append(f"{name}: language switcher is missing a link to {other}")
+
+        if name != "README.md" and readme_shape(text) != english_shape:
+            errors.append(f"{name}: code blocks, diagrams, or images differ from README.md")
+
+        # Every relative link and image must exist.
+        refs = re.findall(r'(?:src|href)="([^"]+)"|\]\(([^)\s]+)\)', text)
+        for ref in refs:
+            target = next(part for part in ref if part).split("#", 1)[0]
+            if not target or "://" in target or target.startswith("mailto:"):
+                continue
+            path = ROOT / target
+            if not path.exists():
+                errors.append(f"{name}: broken link {target}")
+            elif path.suffix == ".svg":
+                try:
+                    ElementTree.parse(path)
+                except ElementTree.ParseError as exc:
+                    errors.append(f"{name}: invalid SVG {target}: {exc}")
+
+
+def check_example(errors: list[str]) -> None:
+    """The worked example's agents.md must equal what the initializer generates today."""
+    with tempfile.TemporaryDirectory() as tmp:
+        result = run_init(Path(tmp), *EXAMPLE_INIT_ARGS, name=None)
+        if result.returncode != 0:
+            errors.append(f"example: initializer failed: {result.stderr.strip()}")
+            return
+        expected = (Path(tmp) / "agents.md").read_text(encoding="utf-8")
+    if (EXAMPLE / "agents.md").read_text(encoding="utf-8") != expected:
+        errors.append("examples/cv-leakage-study/agents.md is out of date with AGENTS.md.template")
+
+
+def run_init(target: Path, *args: str, name: str | None = "Validation Project") -> subprocess.CompletedProcess[str]:
     initializer = SKILL / "scripts" / "init_research_orchestrator.py"
+    name_args = ["-n", name] if name else []
     return subprocess.run(
-        [sys.executable, str(initializer), str(target), "-n", "Validation Project", *args],
+        [sys.executable, str(initializer), str(target), *name_args, *args],
         text=True,
         capture_output=True,
     )
@@ -298,9 +358,10 @@ def main() -> int:
     check_manifests(errors)
     check_legacy_name(errors)
     check_frontmatter(errors)
-    check_readme_images(errors)
+    check_readmes(errors)
     for path in DOCS:
         check_doc(path, errors)
+    check_example(errors)
     check_initializer(errors)
 
     if errors:
@@ -314,8 +375,10 @@ def main() -> int:
     print("- OpenAI metadata is aligned")
     print("- no legacy skill name remains")
     print("- SKILL.md frontmatter has only name and description")
-    print("- README images exist and SVGs parse")
-    print("- PLAN, DISCOVERIES, and HANDOFF examples use the exact field order")
+    print("- all READMEs have the language switcher, working links, valid SVGs, and the same structure")
+    print("- PLAN, DISCOVERIES, and HANDOFF blocks use the exact field order (docs, templates, example)")
+    print("- concrete Priority values match the formula")
+    print("- the worked example's agents.md matches the current template")
     print("- discoveries record Host and Cross-check; reviews come from a different host")
     print("- Resource values are CPU/GPU/EITHER (plan) and CPU/GPU/Other/none (handoff)")
     print("- agent names and IDs follow Main, A-Z, AA-ZZ and H-<Agent>-NN / D-<Agent>-NNN")

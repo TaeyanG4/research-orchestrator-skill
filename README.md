@@ -2,6 +2,10 @@
   <img src="assets/readme/hero.svg" alt="Research Orchestrator — hypothesis-driven research across sessions and hosts, coordinated through agents.md, plan.md, discoveries.md, and handoff.md" width="100%">
 </p>
 
+<p align="center">
+  <b>English</b> · <a href="README.ko.md">한국어</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
+</p>
+
 # Research Orchestrator
 
 A lightweight, hypothesis-driven research workflow for one or many AI agent sessions.
@@ -62,6 +66,17 @@ flowchart TD
 | `handoff.md` | Operational history, resumable state, artifacts, metrics, blockers, and next actions. |
 
 Completed items **leave `plan.md`**. Their execution history goes to `handoff.md`, reusable knowledge goes to `discoveries.md`, and follow-up hypotheses return to `plan.md` with fresh scores.
+
+## Templates and a worked example
+
+Each file is created from a template. The worked example shows the same four files in the middle of a real project: two active slots (`Main` on Claude Code, `A` on Codex) and one released slot (`B`), a `VERIFIED` discovery, a discovery under review, a negative result, and the handoff log that produced them.
+
+| File | Template | Worked example |
+| --- | --- | --- |
+| `agents.md` | [AGENTS.md.template](skills/research-orchestrator-skill/templates/AGENTS.md.template) | [agents.md](examples/cv-leakage-study/agents.md) |
+| `plan.md` | [PLAN.md.template](skills/research-orchestrator-skill/templates/PLAN.md.template) | [plan.md](examples/cv-leakage-study/plan.md) |
+| `discoveries.md` | [DISCOVERIES.md.template](skills/research-orchestrator-skill/templates/DISCOVERIES.md.template) | [discoveries.md](examples/cv-leakage-study/discoveries.md) |
+| `handoff.md` | [HANDOFF.md.template](skills/research-orchestrator-skill/templates/HANDOFF.md.template) | [handoff.md](examples/cv-leakage-study/handoff.md) |
 
 ---
 
@@ -391,6 +406,9 @@ Worker count is not a goal. **Useful throughput is the goal.**
 ```text
 research-orchestrator-skill/
 ├── README.md
+├── README.ko.md
+├── README.zh-CN.md
+├── README.ja.md
 ├── LICENSE
 ├── .gitignore
 ├── plugin.json
@@ -402,6 +420,11 @@ research-orchestrator-skill/
 ├── assets/readme/
 │   ├── hero.svg
 │   └── cross-host-check.svg
+├── examples/cv-leakage-study/
+│   ├── agents.md
+│   ├── plan.md
+│   ├── discoveries.md
+│   └── handoff.md
 ├── scripts/validate_release.py
 └── skills/
     └── research-orchestrator-skill/
@@ -441,10 +464,12 @@ A release should pass all of these checks:
 - Plugin and marketplace manifests parse as valid JSON and share one version.
 - No legacy skill name remains.
 - Skill frontmatter contains only `name` and `description`.
-- PLAN, DISCOVERIES, and HANDOFF examples in README, SKILL.md, and templates use the exact field order.
+- PLAN, DISCOVERIES, and HANDOFF examples in every README, SKILL.md, the templates, and the worked example use the exact field order.
 - Discoveries record their `Host` and a valid `Cross-check` state; reviews use `<Host> (<Agent>)` with `CLOSED`, `HOLD`, or `CHALLENGED`, and never come from the source host (unless marked `same host —`).
 - Resource values are `CPU`/`GPU`/`EITHER` in PLAN and `CPU`/`GPU`/`Other`/`none` in HANDOFF.
 - Agent names are `Main`, `A`-`Z`, or `AA`-`ZZ`; IDs follow `H-<Agent>-NN` and `D-<Agent>-NNN`.
+- Every README has the language switcher, its relative links resolve, and translations keep the same images and code-block structure.
+- The worked example's `agents.md` matches what the initializer generates today.
 - Initializer writes LF files, rejects duplicate or non-standard agent names, and never overwrites existing project files.
 
 # License

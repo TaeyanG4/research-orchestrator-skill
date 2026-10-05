@@ -1,0 +1,486 @@
+<p align="center">
+  <img src="assets/readme/hero.svg" alt="Research Orchestrator — 通过 agents.md、plan.md、discoveries.md、handoff.md 四个文件协调跨会话、跨主机的假设驱动研究" width="100%">
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> · <a href="README.ko.md">한국어</a> · <b>简体中文</b> · <a href="README.ja.md">日本語</a>
+</p>
+
+> 本文档是[英文 README](README.md) 的译本，如有出入以英文原文为准。字段名、状态值和命令需要由代理原样使用，因此保留英文。
+
+# Research Orchestrator
+
+一个轻量的、以假设为驱动的研究工作流，适用于单个或多个 AI 代理会话。
+
+它刻意只使用**四个共享 Markdown 文件**，同时提供带评分的假设队列、跨主机一次性交叉验证、自适应工作者以及 CPU/GPU/Other 资源路由。
+
+## 为什么使用它？
+
+- 在新的会话中继续长期研究。
+- 让多个代理独立探索，而不共享未完成的计划。
+- 移除已完成的工作，保持 `plan.md` 精简。
+- 同一个想法绝不排队两次：失败的假设会作为负面结果记录，每个新条目都会与 discoveries、handoff 日志以及其他代理的队列进行比对。
+- 将实验结果转化为可复用的共享发现。
+- 每个发现只由另一个主机检查一次——Codex 的发现由 Claude Code 验证，反之亦然——而不是让每个会话都重新审查。
+- 用 `HOLD` 保留有前景但尚不完整的发现。
+- 附上明确的证据和改进点，把发现重新打开为更强的假设。
+- 从两个工作者开始，扩展到机器实际可承受的满负荷。
+
+## 核心工作流
+
+```mermaid
+flowchart LR
+    D[DISCOVERIES<br/>共享证据<br/>由另一主机交叉检查一次]
+    H[新假设<br/>Sources + Evidence + Improvement]
+    P[PLAN<br/>带评分的活动队列]
+    W[自适应工作者<br/>CPU / GPU / Other]
+    E[实验]
+    O[HANDOFF<br/>历史 + 产物 + 阻碍 + 下一状态]
+
+    D --> H --> P --> W --> E --> D
+    P --> O
+    E --> O
+    D --> O
+```
+
+一个发现可以产生**零个、一个或多个**新假设。一个假设也可以结合多个发现的证据。
+
+## 四个文件
+
+```mermaid
+flowchart TD
+    A[AGENTS.md<br/>规则、评分、审查、路由]
+    P[PLAN.md<br/>仅限进行中的工作]
+    D[DISCOVERIES.md<br/>可复用的共享发现]
+    H[HANDOFF.md<br/>运行记录]
+
+    A --> P
+    P -->|完成的结果| D
+    P -->|执行历史| H
+    D -->|新证据 / 审查| P
+```
+
+| 文件 | 用途 |
+| --- | --- |
+| `agents.md` | 关于读取、编辑、评分、审查和资源路由的稳定规则。 |
+| `plan.md` | **仅包含进行中的未完成工作。** 每个代理拥有自己的分区，并按评分队列工作。 |
+| `discoveries.md` | 可复用的共享发现。所有代理都会阅读；每个发现由另一个主机交叉检查一次。 |
+| `handoff.md` | 运行历史、可恢复状态、产物、指标、阻碍和下一步行动。 |
+
+已完成的条目会**离开 `plan.md`**。执行历史进入 `handoff.md`，可复用的知识进入 `discoveries.md`，后续假设以新的评分回到 `plan.md`。
+
+## 模板与完整示例
+
+每个文件都由模板生成。完整示例展示了进行中的项目里这四个文件实际填写后的样子：两个活动槽位（Claude Code 上的 `Main`、Codex 上的 `A`）和一个已释放的槽位（`B`），一个 `VERIFIED` 的发现、一个正在审查的发现、一个负面结果，以及产生它们的 handoff 日志。
+
+| 文件 | 模板 | 完整示例 |
+| --- | --- | --- |
+| `agents.md` | [AGENTS.md.template](skills/research-orchestrator-skill/templates/AGENTS.md.template) | [agents.md](examples/cv-leakage-study/agents.md) |
+| `plan.md` | [PLAN.md.template](skills/research-orchestrator-skill/templates/PLAN.md.template) | [plan.md](examples/cv-leakage-study/plan.md) |
+| `discoveries.md` | [DISCOVERIES.md.template](skills/research-orchestrator-skill/templates/DISCOVERIES.md.template) | [discoveries.md](examples/cv-leakage-study/discoveries.md) |
+| `handoff.md` | [HANDOFF.md.template](skills/research-orchestrator-skill/templates/HANDOFF.md.template) | [handoff.md](examples/cv-leakage-study/handoff.md) |
+
+---
+
+# 安装
+
+本仓库为 **Claude Code、Codex 和 Google Antigravity** 打包了同一个技能。
+
+仓库：
+
+```text
+https://github.com/TaeyanG4/research-orchestrator-skill
+```
+
+## Claude Code
+
+### 通过插件市场安装
+
+在 Claude Code 中：
+
+```text
+/plugin marketplace add TaeyanG4/research-orchestrator-skill
+/plugin install research-orchestrator@research-orchestrator
+```
+
+首次安装后请启动新的 Claude Code 会话。
+
+### 仅项目内安装技能
+
+将以下目录：
+
+```text
+skills/research-orchestrator-skill/
+```
+
+克隆或复制到：
+
+```text
+<project>/.claude/skills/research-orchestrator-skill/
+```
+
+## Codex
+
+### 通过插件市场安装
+
+在终端中：
+
+```bash
+codex plugin marketplace add TaeyanG4/research-orchestrator-skill
+codex
+```
+
+在 Codex 中：
+
+```text
+/plugins
+```
+
+选择 **Research Orchestrator** 市场并安装 `research-orchestrator`。首次使用前请开始新的对话。
+
+### 直接安装技能
+
+仓库范围：
+
+```text
+<project>/.codex/skills/research-orchestrator-skill/
+```
+
+用户范围：
+
+```text
+~/.codex/skills/research-orchestrator-skill/
+```
+
+将仓库中的 `skills/research-orchestrator-skill/` 目录复制到上述任一位置。
+
+## Google Antigravity
+
+克隆仓库：
+
+```bash
+git clone https://github.com/TaeyanG4/research-orchestrator-skill.git
+```
+
+然后将 `skills/research-orchestrator-skill/` 复制到以下任一位置。
+
+项目/工作区范围：
+
+```text
+<project>/.agents/skills/research-orchestrator-skill/
+```
+
+Antigravity 全局范围：
+
+```text
+~/.gemini/config/skills/research-orchestrator-skill/
+```
+
+Antigravity CLI 旧版/全局位置：
+
+```text
+~/.gemini/antigravity-cli/skills/research-orchestrator-skill/
+```
+
+在 Antigravity CLI 中使用 `/skills` 确认技能已被识别。
+
+---
+
+# 快速开始
+
+初始化四个项目文件：
+
+```bash
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
+```
+
+以多个独立代理开始（`2` → `Main, A`）：
+
+```bash
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
+```
+
+`--agents` 也接受 `Main,A,B` 这样的显式名称列表。初始化脚本会拒绝重复或非标准的名称，只创建缺失的文件，绝不覆盖已有的项目文件。
+
+## 代理名称
+
+代理名称是一个**工作槽位**，而不是运行它的工具或模型。所有主机——Claude Code、Codex、Antigravity——都使用相同的名称：
+
+```text
+Main, A, B, C, ... Z, AA, AB, ... ZZ
+```
+
+- 单代理工作始终使用 `Main`；每增加一个并发会话，就使用下一个未使用的字母，`Z` 之后继续使用两个字母的名称。已释放的槽位会被优先复用，因此只有当所有现有槽位同时被占用时才会出现新字母。
+- 不要用 `Claude`、`Codex`、`GPT`、`Gemini` 或任何其他主机/模型名称为代理命名。
+- 任何主机都可以接续任何槽位。槽位由哪个主机持有记录在 `handoff.md` 中，而不是体现在名称里：
+
+```markdown
+### Agent: Main
+- Current host: Claude Code
+- Current thread: H-Main-04
+...
+
+### Agent: A
+- Current host: Codex
+- Current thread: H-A-02
+...
+```
+
+当 `Current host` 为 `unassigned` 或 `released` 时，该槽位是空闲的。新会话按顺序占用第一个空闲槽位，把 `Current host` 设为自己的主机，并在结束时改回 `released`——因此会话是否存活是从文件中读取的，而不是猜测的。
+
+每条完成日志事件也会记录其 `Host`，因此即使槽位易主，历史中仍能看出每一步由哪个主机完成。
+
+ID 中包含所属代理，因此并发代理之间的 ID 永远不会冲突：
+
+| 对象 | 格式 | 示例 |
+| --- | --- | --- |
+| 计划条目 | `H-<Agent>-<NN>` | `H-Main-01`, `H-A-07` |
+| 发现 | `D-<Agent>-<NNN>` | `D-Main-001`, `D-B-014` |
+
+## 阅读规则
+
+每个代理按以下顺序阅读：
+
+```text
+agents.md
+→ all discoveries.md
+→ shared handoff log + its own active handoff
+→ only its own detailed PLAN section
+```
+
+代理**不会**仅为了协调工作而阅读其他活动代理的详细 PLAN。跨分区查看的例外只有三种：调度器读取任务元数据、重复检查读取条目标题和 `Hypothesis` 行、新会话读取 `Current host` 行以寻找空闲槽位。
+
+---
+
+# 标准 PLAN 格式
+
+只保留进行中的未完成条目。
+
+```markdown
+### H-Main-07 — Separate duplicate leakage from group leakage
+- Sources: D-A-014, D-Main-021
+- Hypothesis: exact duplicates explain most apparent group leakage
+- Evidence: D-A-014 weakens after deduplication; D-Main-021 identifies repeated rows
+- Improvement: isolate exact duplicates before constructing candidate groups
+- Impact: 3
+- Information: 3
+- Confidence: 2
+- Unblock: 3
+- Diversity: 2
+- Cost: 1
+- Priority: 21
+- Resource: CPU
+- Parallel: YES
+- Other: NONE
+- Next test: compare random CV and GroupKFold after exact-duplicate removal
+```
+
+### 优先级公式
+
+每个因素评分 0 到 3。
+
+```text
+Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost)
+```
+
+除非被阻塞或被明确指定，否则先运行分数最高的条目。分数相同时，先选 `Cost` 较低的，再选 `Information` 较高的。
+
+当发现重新回到 PLAN 时，以下字段为必填：
+
+- `Sources` — 由哪些发现引出。
+- `Evidence` — 为什么值得再次测试。
+- `Improvement` — 与之前的尝试相比，有哪些实质性的不同或更强之处。
+
+不要只是换一个新任务 ID 重新运行旧想法。
+
+### 添加条目前的重复检查
+
+1. 搜索 `discoveries.md`，包括负面结果——失败的假设总是以 `Finding: <claim> does not hold under <conditions>` 的形式记录在其中。对于 `VERIFIED` 的结论，除非有真正的 `Improvement`，否则跳过；对于 `CHALLENGED` 的结论，在问题解决前跳过。
+2. 在 `handoff.md` 的完成日志和 `docs/` 中查找之前的尝试，并加以引用。
+3. 浏览其他代理的计划分区，**只**阅读条目标题和 `Hypothesis` 行。如果已在队列中，就不要添加。
+4. 写入前重新读取 `plan.md`；如果在此期间出现了相同条目，保留先出现的那个。
+
+---
+
+# 标准 DISCOVERIES 格式
+
+```markdown
+## D-A-014 — Random CV may leak groups
+- Source: A
+- Host: Codex
+- Cross-check: HOLD
+- Finding: duplicated groups cross random folds
+- Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027
+- Implication: current validation may be optimistic
+- Reviews:
+  - Claude Code (Main): HOLD — plausible, but exact duplicates must be separated first
+```
+
+验证以**主机**为单位，而不是以代理为单位。在 Codex 上产生的发现由 Claude Code（或其他不同的主机）检查**一次**，反之亦然。同一主机上的会话共享相同的盲点，因此不会互相重新审查——十个 Claude Code 会话绝不会把同一个发现审查十次。
+
+<p align="center">
+  <img src="assets/readme/cross-host-check.svg" alt="Claude Code 上的 Main 槽位交叉检查来自 Codex 的 D-A-003 并标记为 VERIFIED；Codex 上的 A 槽位已认领来自 Claude Code 的 D-Main-002；B 槽位已释放，可被复用" width="100%">
+</p>
+
+```mermaid
+flowchart LR
+    N[新发现<br/>Host: Codex] --> P[Cross-check: PENDING]
+    P -->|由 Claude Code 会话认领| R[REVIEWING Claude Code]
+    R -->|CLOSED| V[VERIFIED]
+    R -->|HOLD| H[HOLD]
+    R -->|CHALLENGED| C[CHALLENGED]
+    H -->|作者补充证据| P
+    C -->|作者修订| P
+```
+
+`Cross-check` 状态：
+
+- `PENDING` — 尚无其他主机审查。
+- `REVIEWING <Host> (<Agent>)` — 另一主机的会话已认领审查，其他会话不会重复审查。
+- `VERIFIED` — 另一主机已审查并记录 `CLOSED`。
+- `HOLD` — 看似合理，但需要先补充具体证据或改进。
+- `CHALLENGED` — 发现了实质性的矛盾、缺陷或缺失的假设。
+
+规则：
+
+- 作者从不审查自己的发现，同一主机上的会话也不互相审查。
+- 一次跨主机审查就足够；只有对影响重大或存在争议的发现才追加审查。
+- `HOLD` 和 `CHALLENGED` 审查必须说明满足什么条件才能接受该发现。作者修订后，`Cross-check` 回到 `PENDING`。
+- `VERIFIED` 的发现可以自由使用。以未验证的发现为依据时，必须在计划条目的 `Evidence` 中注明；`CHALLENGED` 的发现在问题解决前不得使用。
+- 只有一个主机可用时，可由同一主机上的其他槽位进行交叉检查，并以 `same host —` 开头说明理由。
+
+---
+
+# 标准 HANDOFF 格式
+
+```markdown
+### 2026-10-05 21:10 — Main — H-Main-07
+- Host: Claude Code
+- Action: cross-checked D-A-014; removed exact duplicates and rebuilt group candidates
+- Result: random/group CV gap shrank from 0.0135 to 0.0041
+- Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
+- Discovery updates: D-A-014, D-Main-003
+- Review verdict: D-A-014 HOLD
+- Files/metrics: CV 0.9071 / 0.9030
+- Resource: CPU
+- Other executor: none
+- New plan items: H-Main-08, H-Main-09
+- Next resumable action: test near-duplicate clusters
+```
+
+当 `handoff.md` 变得难以浏览时，把较早的已完成条目归档到 `docs/` 下，并在根目录的 handoff 中留下简短摘要和链接。
+
+---
+
+# 自适应工作者与计算路由
+
+在并行有用时，从**两个工作者**（`Main`、`A`）开始。只有在仍有独立的高价值工作和实际资源余量时才增加工作者。
+
+每个 PLAN 条目声明：
+
+```text
+Resource: CPU | GPU | EITHER
+Parallel: YES | NO
+Other: NONE | <external executor>
+```
+
+示例：
+
+```text
+Other: Kaggle
+```
+
+路由顺序：
+
+1. GPU 空闲 → 选择优先级最高的兼容 GPU/EITHER 条目。
+2. CPU 空闲 → 选择优先级最高的兼容 CPU/EITHER 条目。
+3. 一个本地资源繁忙、另一个空闲 → 用有价值的独立工作填满空闲的那个。
+4. 两个本地资源都饱和 → 在可用且已授权时，符合条件的工作可以溢出到 `Other`。
+5. 绝不为了让硬件忙碌而运行低价值工作。
+6. 出现内存压力、I/O 争用、重复工作或吞吐量下降时减少工作者。
+
+工作者数量不是目标。**有效吞吐量才是目标。**
+
+---
+
+# 仓库结构
+
+```text
+research-orchestrator-skill/
+├── README.md
+├── README.ko.md
+├── README.zh-CN.md
+├── README.ja.md
+├── LICENSE
+├── .gitignore
+├── plugin.json
+├── .agents/plugins/marketplace.json
+├── .claude-plugin/
+│   ├── plugin.json
+│   └── marketplace.json
+├── .codex-plugin/plugin.json
+├── assets/readme/
+│   ├── hero.svg
+│   └── cross-host-check.svg
+├── examples/cv-leakage-study/
+│   ├── agents.md
+│   ├── plan.md
+│   ├── discoveries.md
+│   └── handoff.md
+├── scripts/validate_release.py
+└── skills/
+    └── research-orchestrator-skill/
+        ├── SKILL.md
+        ├── agents/openai.yaml
+        ├── scripts/init_research_orchestrator.py
+        ├── templates/
+        │   ├── AGENTS.md.template
+        │   ├── PLAN.md.template
+        │   ├── DISCOVERIES.md.template
+        │   └── HANDOFF.md.template
+        └── assets/icon.svg
+```
+
+# 设计原则
+
+- **最小共享状态** — 四个协调文档，没有按代理划分的文件夹层级。
+- **独立探索** — 未完成的代理计划保持分离。
+- **共享证据** — 已完成的发现通过 discoveries 流转。
+- **跨主机验证** — 每个发现由另一主机检查一次，而不是由每个会话检查。
+- **只保留活动队列** — 已完成的工作不会在 PLAN 中堆积。
+- **基于证据的重试** — 重新提出的发现要说明证据和改进。
+- **自适应并发** — 工作者数量取决于有用的工作和计算余量。
+- **与主机无关的代理** — `Main`、`A`、`B`……是任何主机都能接续的槽位；主机记录在 handoff 中。
+- **安全的共享编辑** — 修改共享文件前先重新读取。
+
+# 验证
+
+发布变更前运行内置的一致性检查：
+
+```bash
+python scripts/validate_release.py
+```
+
+一个发布版本应通过以下所有检查：
+
+- 插件和市场清单是有效的 JSON，且版本一致。
+- 不再残留旧的技能名称。
+- 技能 frontmatter 只包含 `name` 和 `description`。
+- README（含译本）、SKILL.md、模板和完整示例中的 PLAN、DISCOVERIES、HANDOFF 使用准确的字段顺序。
+- 发现记录了 `Host` 和有效的 `Cross-check` 状态；审查使用 `<Host> (<Agent>)` 格式及 `CLOSED`、`HOLD` 或 `CHALLENGED`，且不来自作者所在的主机（标注 `same host —` 的除外）。
+- Resource 值在 PLAN 中为 `CPU`/`GPU`/`EITHER`，在 HANDOFF 中为 `CPU`/`GPU`/`Other`/`none`。
+- 代理名称为 `Main`、`A`-`Z` 或 `AA`-`ZZ`；ID 遵循 `H-<Agent>-NN` 和 `D-<Agent>-NNN`。
+- 所有 README 都有语言切换链接，相对链接均存在，并保持相同的图片和代码块结构。
+- 完整示例中的 `agents.md` 与初始化脚本当前生成的内容一致。
+- 初始化脚本以 LF 写入文件，拒绝重复或非标准的代理名称，且绝不覆盖已有的项目文件。
+
+# 许可证
+
+MIT。
+
+## 主机文档
+
+- Claude Code 插件：https://docs.claude.com/en/docs/claude-code/plugins
+- OpenAI 插件打包与市场：https://developers.openai.com/plugins/build/plugins
+- Codex 技能：https://developers.openai.com/blog/eval-skills
+- Google Antigravity 技能：https://codelabs.developers.google.com/getting-started-with-antigravity-skills
