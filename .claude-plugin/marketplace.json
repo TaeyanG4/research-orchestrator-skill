@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "research-orchestrator",
+  "owner": {
+    "name": "TaeyanG4"
+  },
+  "metadata": {
+    "description": "Research Orchestrator plugin marketplace",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "research-orchestrator",
+      "description": "Hypothesis-driven multi-agent research workflow with scored plans, peer review, adaptive workers, and durable handoffs.",
+      "source": "./",
+      "category": "development"
+    }
+  ]
+}
