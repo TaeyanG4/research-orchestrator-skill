@@ -1,0 +1,40 @@
+# {{PROJECT_NAME}} — Handoff
+
+Everything operational is recorded here. Keep unfinished agent-specific detail inside that agent's active section; completed/reviewed work goes into the shared log.
+
+## Shared state
+
+- Active agent(s): {{AGENT_NAMES}}
+- Current project state: initialized
+- Active compute: none
+- Important shared artifacts/metrics: none yet
+
+## Active handoff — Agent sections
+
+Each research agent reads and edits only its own active handoff section. Do not copy another agent's unfinished plan here.
+
+{{HANDOFF_AGENT_SECTIONS}}
+
+## Completed / review log
+
+All agents may read this shared log. Append completed work, meaningful resource-routing changes, and discovery-review events here.
+
+Use this exact format:
+
+```markdown
+### YYYY-MM-DD HH:MM — Agent A — H-A01
+- Action: ...
+- Result: ...
+- Evidence: ...
+- Discovery updates: D-001 / none
+- Review verdict: A:CLOSED | A:HOLD | A:CHALLENGED | none
+- Files/metrics: ...
+- Resource: CPU | GPU | Other | none
+- Other executor: Kaggle / none
+- New plan items: H-A02, H-A03 / none
+- Next resumable action: ...
+```
+
+## Archived history
+
+When this file becomes hard to scan, move older completed-log detail to `docs/<focused-name>.md` and leave a short summary/link here. Keep shared state, active agent handoffs, and recent completed/review records in this file.
