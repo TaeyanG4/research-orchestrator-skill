@@ -1,0 +1,30 @@
+# {{PROJECT_NAME}} — Discoveries
+
+Shared reusable findings live here. Every agent reads this file.
+
+A discovery has no single global final state. Each agent records its own review verdict.
+
+Use this exact format:
+
+```markdown
+## D-001 — Short title
+- Source: Agent A
+- Finding: ...
+- Evidence: ...
+- Implication: ...
+- Reviews:
+  - Agent A: CLOSED — source experiment supports the finding
+  - Agent B: HOLD — promising, but needs stronger evidence on ...
+  - Agent C: CHALLENGED — found contradictory evidence in ...
+```
+
+Verdicts:
+
+- `CLOSED`: this agent currently accepts the finding after meaningful review.
+- `HOLD`: this agent sees plausible value but needs more evidence, a condition change, or a specific improvement before accepting or rejecting it.
+- `CHALLENGED`: this agent found a material problem, contradiction, or missing assumption.
+- no review entry: this agent has not reviewed it yet.
+
+Another agent's `CLOSED` never becomes your verdict automatically. Review discoveries that materially affect your work, then add your own verdict.
+
+A discovery may generate many plan hypotheses, and one hypothesis may combine many discoveries. When moving an idea back into `plan.md`, always include the source IDs plus the concrete `Evidence` and `Improvement` that justify the new attempt.
