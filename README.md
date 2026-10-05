@@ -360,6 +360,12 @@ research-orchestrator-skill/
 
 # Validation
 
+Run the built-in consistency check before publishing changes:
+
+```bash
+python scripts/validate_release.py
+```
+
 A release should pass all of these checks:
 
 - Skill frontmatter contains only `name` and `description`.
