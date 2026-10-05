@@ -12,18 +12,17 @@ import sys
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = SKILL_ROOT / "templates"
 
-# Agent names are work slots, assigned in this order: Main, A ... Z, AA ... ZZ.
+# Agent names are work slots, assigned in this order: A ... Z, AA ... ZZ.
 AGENT_ORDER = [
-    "Main",
     *string.ascii_uppercase,
     *(a + b for a in string.ascii_uppercase for b in string.ascii_uppercase),
 ]
 
 
 def parse_agents(raw: str | None) -> list[str]:
-    """Return canonical agent names from a count ("3") or a list ("Main,A,B")."""
+    """Return canonical agent names from a count ("3") or a list ("A,B,C")."""
     if not raw or not raw.strip():
-        return ["Main"]
+        return ["A"]
     raw = raw.strip()
     if raw.isdigit():
         count = int(raw)
@@ -40,13 +39,13 @@ def parse_agents(raw: str | None) -> list[str]:
         name = canonical.get(item.lower())
         if name is None:
             raise ValueError(
-                f"invalid agent name '{item}': use Main, a letter A-Z, or two letters AA-ZZ, "
+                f"invalid agent name '{item}': use a letter A-Z or two letters AA-ZZ, "
                 "never a host or model name such as Claude, Codex, or GPT"
             )
         if name in names:
             raise ValueError(f"duplicate agent name '{name}'")
         names.append(name)
-    return names or ["Main"]
+    return names or ["A"]
 
 
 def agent_sections(names: list[str]) -> str:
@@ -96,7 +95,7 @@ def main() -> int:
     parser.add_argument("-n", "--name", help="Project name (defaults to directory name)")
     parser.add_argument(
         "--agents",
-        help="Agent count (e.g. 2 -> Main,A) or comma-separated names from Main, A-Z, AA-ZZ",
+        help="Agent count (e.g. 2 -> A,B) or comma-separated names from A-Z, AA-ZZ",
     )
     args = parser.parse_args()
 

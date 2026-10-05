@@ -35,7 +35,8 @@ flowchart LR
     E[Experiments]
     O[HANDOFF<br/>history + artifacts + blockers + next state]
 
-    D --> H --> P --> W --> E --> D
+    D -->|0..N follow-ups| H
+    H --> P --> W --> E --> D
     P --> O
     E --> O
     D --> O
@@ -69,7 +70,7 @@ Completed items **leave `plan.md`**. Their execution history goes to `handoff.md
 
 ## Templates and a worked example
 
-Each file is created from a template. The worked example shows the same four files in the middle of a real project: two active slots (`Main` on Claude Code, `A` on Codex) and one released slot (`B`), a `VERIFIED` discovery, a discovery under review, a negative result, and the handoff log that produced them.
+Each file is created from a template. The worked example shows the same four files in the middle of a real project: two active slots (`A` on Claude Code, `B` on Codex) and one released slot (`C`), a `VERIFIED` discovery, a discovery under review, a negative result logged with zero follow-ups and the reason, a same-host take-over, and the handoff log that produced them.
 
 | File | Template | Worked example |
 | --- | --- | --- |
@@ -192,39 +193,39 @@ Initialize the four project files:
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 ```
 
-Start with multiple independent agents (`2` → `Main, A`):
+Start with multiple independent agents (`2` → `A, B`):
 
 ```bash
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
 ```
 
-`--agents` also accepts an explicit list such as `Main,A,B`. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files.
+`--agents` also accepts an explicit list such as `A,B,C`. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files.
 
 ## Agent names
 
 An agent name is a **work slot**, not the tool or model running it. Every host — Claude Code, Codex, Antigravity — uses the same names:
 
 ```text
-Main, A, B, C, ... Z, AA, AB, ... ZZ
+A, B, C, ... Z, AA, AB, ... ZZ
 ```
 
-- Single-agent work always uses `Main`; each additional concurrent session takes the next unused letter, continuing with two-letter names after `Z`. Released slots are reused first, so new letters appear only when every existing slot is taken at once.
+- Single-agent work always uses `A`; each additional concurrent session takes the next unused letter, continuing with two-letter names after `Z`. Released slots are reused first, so new letters appear only when every existing slot is taken at once.
 - Never name an agent `Claude`, `Codex`, `GPT`, `Gemini`, or any other host/model name.
 - Any host may resume any slot. Which host owns a slot is recorded in `handoff.md`, not in the name:
 
 ```markdown
-### Agent: Main
+### Agent: A
 - Current host: Claude Code
-- Current thread: H-Main-04
+- Current thread: H-A-04
 ...
 
-### Agent: A
+### Agent: B
 - Current host: Codex
-- Current thread: H-A-02
+- Current thread: H-B-02
 ...
 ```
 
-A slot is free when `Current host` reads `unassigned` or `released`. A new session takes the first free slot in order, sets `Current host` to its own host, and sets it back to `released` when it closes — so liveness is read from the file, never guessed.
+A slot is free when `Current host` reads `unassigned` or `released`. A new session takes the first free slot in order — skipping one that still holds plan items left by a different host — sets `Current host` to its own host, and sets it back to `released` when it closes — so liveness is read from the file, never guessed.
 
 Each completed-log event also records its `Host`, so the history shows which host did each step even after a slot changes hands.
 
@@ -232,8 +233,18 @@ IDs embed the owning agent so concurrent agents never collide:
 
 | Object | Format | Examples |
 | --- | --- | --- |
-| Plan item | `H-<Agent>-<NN>` | `H-Main-01`, `H-A-07` |
-| Discovery | `D-<Agent>-<NNN>` | `D-Main-001`, `D-B-014` |
+| Plan item | `H-<Agent>-<NN>` | `H-A-01`, `H-B-07` |
+| Discovery | `D-<Agent>-<NNN>` | `D-A-001`, `D-C-014` |
+
+## Follow-ups and take-over
+
+- **Plan follow-ups from every discovery.** Each time an agent records a discovery — a new finding, a negative result, or a cross-check verdict — it decides what to test next: zero, one, or many new plan items, each passing the duplicate check. It also rescores or removes its own items the discovery affects. Zero is a valid answer, but it is logged with a reason: `New plan items: none — <reason>`.
+- **When a queue runs out**, the agent looks for work in this order: re-read its own section → claim a `PENDING` cross-check from another host → take over an item from a same-host slot → derive new hypotheses → note it and release the slot.
+- **Take-over stays within one host.** A host is the platform, not the model: two Claude Code sessions on different models are the same host. If `A`'s queue is empty and `C` (same host) still has queued items, `A` moves the highest-priority one into its own section under its own next ID — `H-C-02` becomes `### H-A-04 — … (from H-C-02)` — and logs the move. It never takes the item in the owner's `Current thread`, and items queued by a different host stay with that host.
+
+<p align="center">
+  <img src="assets/readme/take-over.svg" alt="Slot A on Claude Code has an empty queue, so it takes over H-C-02 from released slot C, whose last host was Claude Code, as H-A-04; slot B runs on Codex, so its items stay with B" width="100%">
+</p>
 
 ## Reading rule
 
@@ -246,7 +257,7 @@ agents.md
 → only its own detailed PLAN section
 ```
 
-Agents do **not** read another active agent's detailed PLAN just to coordinate work. The only cross-section peeks are a dispatcher reading task metadata, the duplicate check reading item headings and `Hypothesis` lines, and a new session reading `Current host` lines to find a free slot.
+Agents do **not** read another active agent's detailed PLAN just to coordinate work. The only cross-section peeks are a dispatcher reading task metadata, the duplicate check reading item headings and `Hypothesis` lines, a session reading `Current host` and `Current thread` lines to find a free slot or a take-over source, and the one item a session takes over.
 
 ---
 
@@ -255,10 +266,10 @@ Agents do **not** read another active agent's detailed PLAN just to coordinate w
 Keep only active unfinished items.
 
 ```markdown
-### H-Main-07 — Separate duplicate leakage from group leakage
-- Sources: D-A-014, D-Main-021
+### H-A-07 — Separate duplicate leakage from group leakage
+- Sources: D-B-014, D-A-021
 - Hypothesis: exact duplicates explain most apparent group leakage
-- Evidence: D-A-014 weakens after deduplication; D-Main-021 identifies repeated rows
+- Evidence: D-B-014 weakens after deduplication; D-A-021 identifies repeated rows
 - Improvement: isolate exact duplicates before constructing candidate groups
 - Impact: 3
 - Information: 3
@@ -303,21 +314,21 @@ Do not simply rerun an old idea under a new task ID.
 # Standard DISCOVERIES format
 
 ```markdown
-## D-A-014 — Random CV may leak groups
-- Source: A
+## D-B-014 — Random CV may leak groups
+- Source: B
 - Host: Codex
 - Cross-check: HOLD
 - Finding: duplicated groups cross random folds
 - Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027
 - Implication: current validation may be optimistic
 - Reviews:
-  - Claude Code (Main): HOLD — plausible, but exact duplicates must be separated first
+  - Claude Code (A): HOLD — plausible, but exact duplicates must be separated first
 ```
 
 Verification is per **host**, not per agent. A discovery made on Codex is checked **once** by Claude Code (or another different host), and vice versa. Sessions on the same host share the same blind spots, so they do not re-review each other — ten Claude Code sessions never review the same finding ten times.
 
 <p align="center">
-  <img src="assets/readme/cross-host-check.svg" alt="Slot Main on Claude Code cross-checks D-A-003 from Codex and marks it VERIFIED; slot A on Codex has claimed D-Main-002 from Claude Code; slot B is released and free for reuse" width="100%">
+  <img src="assets/readme/cross-host-check.svg" alt="Slot A on Claude Code cross-checks D-B-003 from Codex and marks it VERIFIED; slot B on Codex has claimed D-A-002 from Claude Code; slot C is released and free for reuse" width="100%">
 </p>
 
 ```mermaid
@@ -352,17 +363,17 @@ Rules:
 # Standard HANDOFF format
 
 ```markdown
-### 2026-10-05 21:10 — Main — H-Main-07
+### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
-- Action: cross-checked D-A-014; removed exact duplicates and rebuilt group candidates
+- Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
 - Result: random/group CV gap shrank from 0.0135 to 0.0041
 - Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-A-014, D-Main-003
-- Review verdict: D-A-014 HOLD
+- Discovery updates: D-B-014, D-A-003
+- Review verdict: D-B-014 HOLD
 - Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
-- New plan items: H-Main-08, H-Main-09
+- New plan items: H-A-08, H-A-09
 - Next resumable action: test near-duplicate clusters
 ```
 
@@ -372,7 +383,7 @@ When `handoff.md` becomes hard to scan, archive older completed entries under `d
 
 # Adaptive workers and compute routing
 
-Start with **two workers** (`Main`, `A`) when parallelism is useful. Add workers only while independent high-value work and actual resource headroom remain.
+Start with **two workers** (`A`, `B`) when parallelism is useful. Add workers only while independent high-value work and actual resource headroom remain.
 
 Each PLAN item declares:
 
@@ -419,7 +430,8 @@ research-orchestrator-skill/
 ├── .codex-plugin/plugin.json
 ├── assets/readme/
 │   ├── hero.svg
-│   └── cross-host-check.svg
+│   ├── cross-host-check.svg
+│   └── take-over.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md
@@ -448,7 +460,7 @@ research-orchestrator-skill/
 - **Live queue only** — completed work does not accumulate in PLAN.
 - **Evidence-backed retries** — returning discoveries state evidence and improvements.
 - **Adaptive concurrency** — worker count follows useful work and compute headroom.
-- **Host-agnostic agents** — `Main`, `A`, `B`, ... are slots any host can resume; hosts are recorded in handoff.
+- **Host-agnostic agents** — `A`, `B`, `C`, ... are slots any host can resume; hosts are recorded in handoff.
 - **Safe shared edits** — re-read before patching shared files.
 
 # Validation
@@ -467,7 +479,8 @@ A release should pass all of these checks:
 - PLAN, DISCOVERIES, and HANDOFF examples in every README, SKILL.md, the templates, and the worked example use the exact field order.
 - Discoveries record their `Host` and a valid `Cross-check` state; reviews use `<Host> (<Agent>)` with `CLOSED`, `HOLD`, or `CHALLENGED`, and never come from the source host (unless marked `same host —`).
 - Resource values are `CPU`/`GPU`/`EITHER` in PLAN and `CPU`/`GPU`/`Other`/`none` in HANDOFF.
-- Agent names are `Main`, `A`-`Z`, or `AA`-`ZZ`; IDs follow `H-<Agent>-NN` and `D-<Agent>-NNN`.
+- Real handoff events list their new plan items or say `none — <reason>`; concrete `Priority` values match the formula.
+- Agent names are `A`-`Z` or `AA`-`ZZ`; IDs follow `H-<Agent>-NN` and `D-<Agent>-NNN`.
 - Every README has the language switcher, its relative links resolve, and translations keep the same images and code-block structure.
 - The worked example's `agents.md` matches what the initializer generates today.
 - Initializer writes LF files, rejects duplicate or non-standard agent names, and never overwrites existing project files.

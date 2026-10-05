@@ -9,13 +9,13 @@ Everything operational is recorded here. Keep unfinished agent-specific detail i
 - Active compute: none
 - Important shared artifacts/metrics: none yet
 
-Agent names are work slots (`Main`, `A`, `B`, ...), never host or model names. A new concurrent session takes the next unused name and adds it to `Active agent(s)`.
+Agent names are work slots (`A`, `B`, `C`, ...), never host or model names. A new concurrent session takes the next unused name and adds it to `Active agent(s)`.
 
 ## Active handoff — Agent sections
 
 Each research agent reads and edits only its own active handoff section. Do not copy another agent's unfinished plan here.
 
-`Current host` records which host (Claude Code, Codex, Antigravity, ...) currently owns the slot. A slot is free when it reads `unassigned` or `released`. Set it to your host when you take or resume the slot, and to `released` when you close the session. A new session may read only this line of other agents' sections, to find a free slot.
+`Current host` records which host (Claude Code, Codex, Antigravity, ...) currently owns the slot. A slot is free when it reads `unassigned` or `released`; a free slot that still holds plan items left by a different host is skipped unless the user assigns it. Set it to your host when you take or resume the slot, and to `released` when you close the session. Other sessions may read only the `Current host` and `Current thread` lines of your section: to find a free slot, or to take over a queued item other than your `Current thread` when their own queue runs out (same host only).
 
 {{HANDOFF_AGENT_SECTIONS}}
 
@@ -26,19 +26,21 @@ All agents may read this shared log. Append completed work, meaningful resource-
 Use this exact format:
 
 ```markdown
-### YYYY-MM-DD HH:MM — Main — H-Main-01
+### YYYY-MM-DD HH:MM — A — H-A-01
 - Host: Claude Code | Codex | Antigravity | <other>
 - Action: ...
 - Result: ...
 - Evidence: ...
-- Discovery updates: D-Main-001 / none
+- Discovery updates: D-A-001 / none
 - Review verdict: <discovery ID> CLOSED | HOLD | CHALLENGED / none
 - Files/metrics: ...
 - Resource: CPU | GPU | Other | none
 - Other executor: Kaggle / none
-- New plan items: H-Main-02, H-Main-03 / none
+- New plan items: H-A-02, H-A-03 / none — <reason>
 - Next resumable action: ...
 ```
+
+`New plan items` is never a bare `none`; zero follow-ups always gives a reason. When you take over an item from a same-host slot, log it as its own event with `Action: took over H-C-03 from C (same host) as H-A-05`.
 
 ## Archived history
 

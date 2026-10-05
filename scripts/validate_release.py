@@ -21,7 +21,6 @@ TEMPLATES = SKILL / "templates"
 LEGACY_NAME = "context-" + "continuity"
 
 AGENT_NAMES = {
-    "Main",
     *string.ascii_uppercase,
     *(a + b for a in string.ascii_uppercase for b in string.ascii_uppercase),
 }
@@ -72,6 +71,7 @@ SECTION_HEAD = re.compile(r"^#{2,3} Agent: (\S+)")
 ID_NEW = re.compile(r"\b([HD])-([A-Za-z]+)-(\d+)\b")
 ID_OLD = re.compile(r"\b[HD]-[A-Za-z]?\d+\b")
 AGENT_PROSE = re.compile(r"\bAgent (?:Main|[A-Z]{1,2})\b")
+NEW_ITEMS_IDS = re.compile(r"^H-[A-Za-z]+-\d{2}(?:, H-[A-Za-z]+-\d{2})*$")
 
 
 def blocks(lines: list[str], head: re.Pattern[str]):
@@ -176,6 +176,11 @@ def check_doc(path: Path, errors: list[str]) -> None:
         if field_names(fields) != HANDOFF_FIELDS:
             errors.append(f"{where}: HANDOFF fields {field_names(fields)} != {HANDOFF_FIELDS}")
         check_resource(field_value(fields, "Resource"), HANDOFF_RESOURCES, where, errors)
+        # Real events (not the YYYY-MM-DD format sample) must list IDs or justify zero follow-ups.
+        if not match.group(0).startswith("### YYYY"):
+            new_items = field_value(fields, "New plan items") or ""
+            if not (NEW_ITEMS_IDS.match(new_items) or new_items.startswith("none — ")):
+                errors.append(f"{where}: New plan items '{new_items}' must list H- IDs or read 'none — <reason>'")
 
     for line in lines:
         section = SECTION_HEAD.match(line)
@@ -191,6 +196,8 @@ def check_doc(path: Path, errors: list[str]) -> None:
         errors.append(f"{rel}: legacy ID format '{match.group(0)}'")
     for match in AGENT_PROSE.finditer(text):
         errors.append(f"{rel}: write '{match.group(0)[6:]}' instead of '{match.group(0)}'")
+    if re.search(r"\bMain\b", text):
+        errors.append(f"{rel}: the Main slot was removed; slots start at A")
 
 
 def check_frontmatter(errors: list[str]) -> None:
@@ -313,8 +320,8 @@ def run_init(target: Path, *args: str, name: str | None = "Validation Project") 
 def check_initializer(errors: list[str]) -> None:
     outputs = ["agents.md", "plan.md", "discoveries.md", "handoff.md"]
     with tempfile.TemporaryDirectory() as tmp:
-        cases = {"default": ([], ["Main"]), "count": (["--agents", "3"], ["Main", "A", "B"]),
-                 "list": (["--agents", "main, a, aa"], ["Main", "A", "AA"])}
+        cases = {"default": ([], ["A"]), "count": (["--agents", "3"], ["A", "B", "C"]),
+                 "list": (["--agents", "a, b, aa"], ["A", "B", "AA"])}
         for label, (args, expected) in cases.items():
             target = Path(tmp) / label
             target.mkdir()
@@ -344,7 +351,7 @@ def check_initializer(errors: list[str]) -> None:
         if run_init(target).returncode != 0 or "KEEP-ME" not in plan.read_text(encoding="utf-8"):
             errors.append("initializer overwrote existing plan.md")
 
-        for bad in ("A,A", "Claude", "Main,Codex", "AAA", "0"):
+        for bad in ("A,A", "Claude", "A,Codex", "Main", "AAA", "0"):
             target = Path(tmp) / f"bad-{len(list(Path(tmp).iterdir()))}"
             target.mkdir()
             result = run_init(target, "--agents", bad)
@@ -353,6 +360,8 @@ def check_initializer(errors: list[str]) -> None:
 
 
 def main() -> int:
+    # Error messages can quote CJK README text; never crash on a legacy console code page.
+    sys.stdout.reconfigure(errors="backslashreplace")
     errors: list[str] = []
 
     check_manifests(errors)
@@ -378,10 +387,11 @@ def main() -> int:
     print("- all READMEs have the language switcher, working links, valid SVGs, and the same structure")
     print("- PLAN, DISCOVERIES, and HANDOFF blocks use the exact field order (docs, templates, example)")
     print("- concrete Priority values match the formula")
+    print("- real handoff events list new plan items or give 'none - <reason>'")
     print("- the worked example's agents.md matches the current template")
     print("- discoveries record Host and Cross-check; reviews come from a different host")
     print("- Resource values are CPU/GPU/EITHER (plan) and CPU/GPU/Other/none (handoff)")
-    print("- agent names and IDs follow Main, A-Z, AA-ZZ and H-<Agent>-NN / D-<Agent>-NNN")
+    print("- agent names and IDs follow A-Z, AA-ZZ and H-<Agent>-NN / D-<Agent>-NNN")
     print("- initializer creates LF files, validates agent names, and preserves existing files")
     return 0
 

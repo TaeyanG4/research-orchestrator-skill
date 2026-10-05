@@ -37,7 +37,8 @@ flowchart LR
     E[実験]
     O[HANDOFF<br/>履歴 + 成果物 + ブロッカー + 次の状態]
 
-    D --> H --> P --> W --> E --> D
+    D -->|後続 0〜N 件| H
+    H --> P --> W --> E --> D
     P --> O
     E --> O
     D --> O
@@ -71,7 +72,7 @@ flowchart TD
 
 ## テンプレートと実例
 
-各ファイルはテンプレートから作成されます。実例では、進行中のプロジェクトで 4 つのファイルが実際にどう埋まるかを示しています。稼働中のスロット 2 つ（Claude Code の `Main`、Codex の `A`）と解放済みのスロット 1 つ（`B`）、`VERIFIED` の発見、レビュー中の発見、ネガティブな結果、そしてそれらを生んだ handoff ログが含まれます。
+各ファイルはテンプレートから作成されます。実例では、進行中のプロジェクトで 4 つのファイルが実際にどう埋まるかを示しています。稼働中のスロット 2 つ（Claude Code の `A`、Codex の `B`）と解放済みのスロット 1 つ（`C`）、`VERIFIED` の発見、レビュー中の発見、後続 0 件を理由付きで記録したネガティブな結果、同じホスト内での引き継ぎ、そしてそれらを生んだ handoff ログが含まれます。
 
 | ファイル | テンプレート | 実例 |
 | --- | --- | --- |
@@ -194,39 +195,39 @@ Antigravity CLI で `/skills` を使い、認識されたことを確認して�
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 ```
 
-複数の独立したエージェントで開始します（`2` → `Main, A`）：
+複数の独立したエージェントで開始します（`2` → `A, B`）：
 
 ```bash
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
 ```
 
-`--agents` には `Main,A,B` のような名前のリストを直接指定することもできます。初期化スクリプトは重複した名前や標準外の名前を拒否し、存在しないファイルだけを作成し、既存のプロジェクトファイルを上書きすることはありません。
+`--agents` には `A,B,C` のような名前のリストを直接指定することもできます。初期化スクリプトは重複した名前や標準外の名前を拒否し、存在しないファイルだけを作成し、既存のプロジェクトファイルを上書きすることはありません。
 
 ## エージェント名
 
 エージェント名は、それを実行するツールやモデルではなく**作業スロット**です。Claude Code、Codex、Antigravity のどのホストも同じ名前を使います：
 
 ```text
-Main, A, B, C, ... Z, AA, AB, ... ZZ
+A, B, C, ... Z, AA, AB, ... ZZ
 ```
 
-- 単一エージェントの作業では常に `Main` を使います。同時に動くセッションが増えるたびに未使用の次の文字を使い、`Z` の後は 2 文字の名前に続きます。解放済みのスロットが先に再利用されるため、新しい文字が生まれるのは既存のスロットがすべて同時に使われているときだけです。
+- 単一エージェントの作業では常に `A` を使います。同時に動くセッションが増えるたびに未使用の次の文字を使い、`Z` の後は 2 文字の名前に続きます。解放済みのスロットが先に再利用されるため、新しい文字が生まれるのは既存のスロットがすべて同時に使われているときだけです。
 - エージェントに `Claude`、`Codex`、`GPT`、`Gemini` などのホスト名・モデル名を付けないでください。
 - どのホストもどのスロットでも引き継げます。スロットをどのホストが担当しているかは、名前ではなく `handoff.md` に記録します：
 
 ```markdown
-### Agent: Main
+### Agent: A
 - Current host: Claude Code
-- Current thread: H-Main-04
+- Current thread: H-A-04
 ...
 
-### Agent: A
+### Agent: B
 - Current host: Codex
-- Current thread: H-A-02
+- Current thread: H-B-02
 ...
 ```
 
-`Current host` が `unassigned` または `released` なら、そのスロットは空いています。新しいセッションは順番に最初の空きスロットを取り、`Current host` を自分のホストに設定し、終了時に `released` に戻します。セッションが生きているかどうかは推測せず、ファイルから読み取ります。
+`Current host` が `unassigned` または `released` なら、そのスロットは空いています。新しいセッションは順番に最初の空きスロットを取り（別のホストが残した plan 項目があるスロットは飛ばし）、`Current host` を自分のホストに設定し、終了時に `released` に戻します。セッションが生きているかどうかは推測せず、ファイルから読み取ります。
 
 完了ログの各イベントにも `Host` が記録されるため、スロットの担当が替わっても、各ステップをどのホストが行ったかが履歴に残ります。
 
@@ -234,8 +235,18 @@ ID には所有エージェントが含まれるため、並行して動くエ�
 
 | 対象 | 形式 | 例 |
 | --- | --- | --- |
-| Plan 項目 | `H-<Agent>-<NN>` | `H-Main-01`, `H-A-07` |
-| Discovery | `D-<Agent>-<NNN>` | `D-Main-001`, `D-B-014` |
+| Plan 項目 | `H-<Agent>-<NN>` | `H-A-01`, `H-B-07` |
+| Discovery | `D-<Agent>-<NNN>` | `D-A-001`, `D-C-014` |
+
+## 後続計画と引き継ぎ
+
+- **発見ごとに後続を計画する。** エージェントは発見（新しい結果、ネガティブな結果、クロスチェックの判定）を記録するたびに、次に何をテストするかを決めます。新しい plan 項目は 0 個、1 個、複数のいずれでもよく、それぞれ重複チェックを通します。その発見の影響を受ける自分の項目は再スコアリングするか削除します。0 個も有効な答えですが、必ず理由を添えて `New plan items: none — <reason>` と記録します。
+- **キューが空になったら**、次の順で作業を探します：自分のセクションを読み直す → 別ホストの `PENDING` クロスチェックを担当する → 同じホストのスロットから項目を引き継ぐ → 発見から新しい仮説を導く → 記録してスロットを解放する。
+- **引き継ぎは同じホスト内に限ります。** ホストはモデルではなくプラットフォームを指すため、異なるモデルで動く 2 つの Claude Code セッションは同じホストです。`A` のキューが空で、同じホストの `C` に待機中の項目が残っていれば、`A` は優先度が最も高い項目を自分のセクションに移し、自分の次の ID を付けて（`H-C-02` → `### H-A-04 — … (from H-C-02)`）、移動を記録します。元の担当者の `Current thread` にある項目は引き継がず、別のホストが登録した項目はそのホストに残します。
+
+<p align="center">
+  <img src="assets/readme/take-over.svg" alt="キューが空になった Claude Code の A スロットが、最後のホストが Claude Code だった解放済みスロット C の H-C-02 を H-A-04 として引き継ぐ。B スロットは Codex のため、その項目は B に残る" width="100%">
+</p>
 
 ## 読み取りルール
 
@@ -248,7 +259,7 @@ agents.md
 → only its own detailed PLAN section
 ```
 
-エージェントは、作業の調整だけを目的に、他の稼働中エージェントの詳細な PLAN を読むことは**ありません**。他のセクションをのぞく例外は 3 つだけです。ディスパッチャーがタスクのメタデータを読む場合、重複チェックのために項目見出しと `Hypothesis` 行を読む場合、新しいセッションが空きスロットを探すために `Current host` 行を読む場合です。
+エージェントは、作業の調整だけを目的に、他の稼働中エージェントの詳細な PLAN を読むことは**ありません**。他のセクションをのぞく例外は 4 つだけです。ディスパッチャーがタスクのメタデータを読む場合、重複チェックのために項目見出しと `Hypothesis` 行を読む場合、空きスロットや引き継ぎ元を探すために `Current host`・`Current thread` 行を読む場合、そして引き継ぐと決めた項目 1 件を読む場合です。
 
 ---
 
@@ -257,10 +268,10 @@ agents.md
 進行中の未完了項目だけを残します。
 
 ```markdown
-### H-Main-07 — Separate duplicate leakage from group leakage
-- Sources: D-A-014, D-Main-021
+### H-A-07 — Separate duplicate leakage from group leakage
+- Sources: D-B-014, D-A-021
 - Hypothesis: exact duplicates explain most apparent group leakage
-- Evidence: D-A-014 weakens after deduplication; D-Main-021 identifies repeated rows
+- Evidence: D-B-014 weakens after deduplication; D-A-021 identifies repeated rows
 - Improvement: isolate exact duplicates before constructing candidate groups
 - Impact: 3
 - Information: 3
@@ -305,21 +316,21 @@ Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost
 # 標準の DISCOVERIES 形式
 
 ```markdown
-## D-A-014 — Random CV may leak groups
-- Source: A
+## D-B-014 — Random CV may leak groups
+- Source: B
 - Host: Codex
 - Cross-check: HOLD
 - Finding: duplicated groups cross random folds
 - Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027
 - Implication: current validation may be optimistic
 - Reviews:
-  - Claude Code (Main): HOLD — plausible, but exact duplicates must be separated first
+  - Claude Code (A): HOLD — plausible, but exact duplicates must be separated first
 ```
 
 検証はエージェント単位ではなく**ホスト**単位です。Codex で生まれた発見は Claude Code（または別のホスト）が **1 回**確認し、その逆も同様です。同じホストのセッションは同じ盲点を共有するため、互いに再レビューしません。Claude Code のセッションが 10 個あっても、同じ発見を 10 回レビューすることはありません。
 
 <p align="center">
-  <img src="assets/readme/cross-host-check.svg" alt="Claude Code の Main スロットが Codex からの D-A-003 をクロスチェックして VERIFIED にし、Codex の A スロットは Claude Code からの D-Main-002 を担当中で、B スロットは released のため再利用可能" width="100%">
+  <img src="assets/readme/cross-host-check.svg" alt="Claude Code の A スロットが Codex からの D-B-003 をクロスチェックして VERIFIED にし、Codex の B スロットは Claude Code からの D-A-002 を担当中で、C スロットは released のため再利用可能" width="100%">
 </p>
 
 ```mermaid
@@ -354,17 +365,17 @@ flowchart LR
 # 標準の HANDOFF 形式
 
 ```markdown
-### 2026-10-05 21:10 — Main — H-Main-07
+### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
-- Action: cross-checked D-A-014; removed exact duplicates and rebuilt group candidates
+- Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
 - Result: random/group CV gap shrank from 0.0135 to 0.0041
 - Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-A-014, D-Main-003
-- Review verdict: D-A-014 HOLD
+- Discovery updates: D-B-014, D-A-003
+- Review verdict: D-B-014 HOLD
 - Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
-- New plan items: H-Main-08, H-Main-09
+- New plan items: H-A-08, H-A-09
 - Next resumable action: test near-duplicate clusters
 ```
 
@@ -374,7 +385,7 @@ flowchart LR
 
 # 適応型ワーカーと計算リソースのルーティング
 
-並列化が有効な場合は、**2 つのワーカー**（`Main`、`A`）から始めます。独立した価値の高い作業と実際のリソースの余裕が残っている間だけ、ワーカーを増やします。
+並列化が有効な場合は、**2 つのワーカー**（`A`、`B`）から始めます。独立した価値の高い作業と実際のリソースの余裕が残っている間だけ、ワーカーを増やします。
 
 各 PLAN 項目は次を宣言します：
 
@@ -421,7 +432,8 @@ research-orchestrator-skill/
 ├── .codex-plugin/plugin.json
 ├── assets/readme/
 │   ├── hero.svg
-│   └── cross-host-check.svg
+│   ├── cross-host-check.svg
+│   └── take-over.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md
@@ -450,7 +462,7 @@ research-orchestrator-skill/
 - **稼働キューのみ** — 完了した作業は PLAN に蓄積しない。
 - **根拠に基づく再試行** — 再び取り上げる発見には根拠と改善点を明記する。
 - **適応型の並行性** — ワーカー数は有用な作業と計算リソースの余裕に従う。
-- **ホストに依存しないエージェント** — `Main`、`A`、`B`、... はどのホストでも引き継げるスロットであり、ホストは handoff に記録する。
+- **ホストに依存しないエージェント** — `A`、`B`、`C`、... はどのホストでも引き継げるスロットであり、ホストは handoff に記録する。
 - **安全な共有編集** — 共有ファイルは修正の直前に読み直す。
 
 # 検証
@@ -469,7 +481,8 @@ python scripts/validate_release.py
 - README（翻訳版を含む）、SKILL.md、テンプレート、実例の PLAN・DISCOVERIES・HANDOFF が正確なフィールド順に従っている。
 - 発見に `Host` と有効な `Cross-check` 状態が記録され、レビューは `<Host> (<Agent>)` 形式で `CLOSED`、`HOLD`、`CHALLENGED` のいずれかを使い、作成者と同じホストから来ていない（`same host —` の表示がある場合を除く）。
 - Resource の値は PLAN では `CPU`/`GPU`/`EITHER`、HANDOFF では `CPU`/`GPU`/`Other`/`none`。
-- エージェント名は `Main`、`A`-`Z`、`AA`-`ZZ` で、ID は `H-<Agent>-NN` と `D-<Agent>-NNN` に従う。
+- 実際の handoff イベントは新しい plan 項目を列挙するか `none — <reason>` と理由を書き、具体的な `Priority` の値は計算式と一致する。
+- エージェント名は `A`-`Z`、`AA`-`ZZ` で、ID は `H-<Agent>-NN` と `D-<Agent>-NNN` に従う。
 - すべての README に言語切り替えリンクがあり、相対リンクが実在し、画像とコードブロックの構成が同じである。
 - 初期化スクリプトは LF でファイルを書き出し、重複または標準外のエージェント名を拒否し、既存のプロジェクトファイルを上書きしない。
 

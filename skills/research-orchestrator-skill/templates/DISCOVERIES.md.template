@@ -4,20 +4,20 @@ Shared reusable findings live here. Every agent reads this file.
 
 Verification is per **host**, not per agent: a discovery made on one host (for example Codex) is cross-checked **once** by a different host (for example Claude Code). Sessions on the same host do not re-review each other.
 
-Discovery IDs use `D-<Agent>-<NNN>`, numbered by the agent that creates the discovery, for example `D-Main-001` or `D-A-014`.
+Discovery IDs use `D-<Agent>-<NNN>`, numbered by the agent that creates the discovery, for example `D-A-001` or `D-B-014`.
 
 Use this exact format:
 
 ```markdown
-## D-A-001 — Short title
-- Source: A
+## D-B-001 — Short title
+- Source: B
 - Host: Codex
 - Cross-check: VERIFIED
 - Finding: ...
 - Evidence: ...
 - Implication: ...
 - Reviews:
-  - Claude Code (Main): CLOSED — reproduced independently with ...
+  - Claude Code (A): CLOSED — reproduced independently with ...
 ```
 
 `Cross-check` states:

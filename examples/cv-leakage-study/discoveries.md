@@ -4,20 +4,20 @@ Shared reusable findings live here. Every agent reads this file.
 
 Verification is per **host**, not per agent: a discovery made on one host (for example Codex) is cross-checked **once** by a different host (for example Claude Code). Sessions on the same host do not re-review each other.
 
-Discovery IDs use `D-<Agent>-<NNN>`, numbered by the agent that creates the discovery, for example `D-Main-001` or `D-A-014`.
+Discovery IDs use `D-<Agent>-<NNN>`, numbered by the agent that creates the discovery, for example `D-A-001` or `D-B-014`.
 
 Use this exact format:
 
 ```markdown
-## D-A-001 — Short title
-- Source: A
+## D-B-001 — Short title
+- Source: B
 - Host: Codex
 - Cross-check: VERIFIED
 - Finding: ...
 - Evidence: ...
 - Implication: ...
 - Reviews:
-  - Claude Code (Main): CLOSED — reproduced independently with ...
+  - Claude Code (A): CLOSED — reproduced independently with ...
 ```
 
 `Cross-check` states:
@@ -46,30 +46,30 @@ Do not archive this file merely because it grows; merge duplicate discoveries in
 
 ---
 
-## D-A-001 — Random CV leaks customer groups
-- Source: A
+## D-B-001 — Random CV leaks customer groups
+- Source: B
 - Host: Codex
 - Cross-check: VERIFIED
 - Finding: rows from the same customer_id land in both training and validation folds under random KFold
 - Evidence: experiments/e001_group_check.py; random KFold CV 0.9162 vs GroupKFold CV 0.9027
 - Implication: random CV is optimistic by about 0.013; use GroupKFold for model selection
 - Reviews:
-  - Claude Code (Main): CLOSED — reproduced with fold seed 7; gap 0.0131
+  - Claude Code (A): CLOSED — reproduced with fold seed 7; gap 0.0131
 
-## D-Main-001 — Exact duplicates explain most of the gap
-- Source: Main
+## D-A-001 — Exact duplicates explain most of the gap
+- Source: A
 - Host: Claude Code
-- Cross-check: REVIEWING Codex (A)
+- Cross-check: REVIEWING Codex (B)
 - Finding: removing exact duplicate rows shrinks the random/group CV gap from 0.0135 to 0.0041
 - Evidence: experiments/e002_dedup.py; outputs/e002.csv
 - Implication: deduplicate before building GroupKFold folds
 - Reviews:
 
-## D-Main-002 — Global target encoding does not hold under GroupKFold
-- Source: Main
+## D-A-002 — Global target encoding does not hold under GroupKFold
+- Source: A
 - Host: Claude Code
 - Cross-check: PENDING
 - Finding: global target encoding does not hold under GroupKFold on deduplicated data (CV 0.9027 → 0.8991)
 - Evidence: experiments/e003_target_encoding.py
-- Implication: do not retry global target encoding; only fold-aware encoding is worth testing
+- Implication: do not retry global target encoding; only fold-aware encoding (H-A-04, taken over from H-C-02) is worth testing
 - Reviews:

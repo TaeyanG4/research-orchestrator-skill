@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
   <title id="title">Slots and cross-host verification</title>
-  <desc id="desc">Agent slots Main, A, and B record their current host in handoff.md. Main on Claude Code cross-checks discovery D-A-003 made on Codex and marks it VERIFIED. A on Codex has claimed the review of D-Main-002 made on Claude Code. Slot B is released and free for reuse.</desc>
+  <desc id="desc">Agent slots A, B, and C record their current host in handoff.md. A on Claude Code cross-checks discovery D-B-003 made on Codex and marks it VERIFIED. B on Codex has claimed the review of D-A-002 made on Claude Code. Slot C is released and free for reuse.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0B1B33"/>
@@ -24,17 +24,17 @@
     <text x="48" y="142" fill="#8FA9CC" font-size="15" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">handoff.md · agent slots</text>
 
     <rect x="48" y="156" width="360" height="84" rx="14" fill="#132F57" stroke="#2A5384"/>
-    <text x="74" y="208" fill="#FFFFFF" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">Main</text>
+    <text x="74" y="208" fill="#FFFFFF" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">A</text>
     <text x="190" y="190" fill="#8FA9CC" font-size="13">Current host</text>
     <text x="190" y="216" fill="#E8875A" font-size="19" font-weight="700">Claude Code</text>
 
     <rect x="48" y="256" width="360" height="84" rx="14" fill="#132F57" stroke="#2A5384"/>
-    <text x="74" y="308" fill="#FFFFFF" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">A</text>
+    <text x="74" y="308" fill="#FFFFFF" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">B</text>
     <text x="190" y="290" fill="#8FA9CC" font-size="13">Current host</text>
     <text x="190" y="316" fill="#3FC1A0" font-size="19" font-weight="700">Codex</text>
 
     <rect x="48" y="356" width="360" height="84" rx="14" fill="#0F2546" stroke="#3B5578" stroke-dasharray="7 6"/>
-    <text x="74" y="408" fill="#7F93B0" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">B</text>
+    <text x="74" y="408" fill="#7F93B0" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">C</text>
     <text x="190" y="390" fill="#8FA9CC" font-size="13">Current host</text>
     <text x="190" y="416" fill="#7F93B0" font-size="19" font-weight="700">released</text>
     <text x="388" y="404" fill="#7F93B0" font-size="13" text-anchor="end">free → reused next</text>
@@ -44,16 +44,16 @@
 
     <rect x="640" y="156" width="512" height="134" rx="14" fill="#132F57" stroke="#2A5384"/>
     <rect x="640" y="156" width="6" height="134" rx="3" fill="#2BB673"/>
-    <text x="664" y="190" fill="#FFFFFF" font-size="17" font-weight="700">D-A-003 — Random CV leaks groups</text>
+    <text x="664" y="190" fill="#FFFFFF" font-size="17" font-weight="700">D-B-003 — Random CV leaks groups</text>
     <text x="664" y="220" font-size="15"><tspan fill="#8FA9CC">Host: </tspan><tspan fill="#3FC1A0" font-weight="700">Codex</tspan></text>
     <text x="664" y="246" font-size="15"><tspan fill="#8FA9CC">Cross-check: </tspan><tspan fill="#2BB673" font-weight="700">VERIFIED</tspan></text>
-    <text x="664" y="274" fill="#CFE0F5" font-size="14">Claude Code (Main): CLOSED — reproduced with GroupKFold</text>
+    <text x="664" y="274" fill="#CFE0F5" font-size="14">Claude Code (A): CLOSED — reproduced with GroupKFold</text>
 
     <rect x="640" y="306" width="512" height="134" rx="14" fill="#132F57" stroke="#2A5384"/>
     <rect x="640" y="306" width="6" height="134" rx="3" fill="#1687D9"/>
-    <text x="664" y="340" fill="#FFFFFF" font-size="17" font-weight="700">D-Main-002 — Dedup shrinks the CV gap</text>
+    <text x="664" y="340" fill="#FFFFFF" font-size="17" font-weight="700">D-A-002 — Dedup shrinks the CV gap</text>
     <text x="664" y="370" font-size="15"><tspan fill="#8FA9CC">Host: </tspan><tspan fill="#E8875A" font-weight="700">Claude Code</tspan></text>
-    <text x="664" y="396" font-size="15"><tspan fill="#8FA9CC">Cross-check: </tspan><tspan fill="#5FB4F5" font-weight="700">REVIEWING Codex (A)</tspan></text>
+    <text x="664" y="396" font-size="15"><tspan fill="#8FA9CC">Cross-check: </tspan><tspan fill="#5FB4F5" font-weight="700">REVIEWING Codex (B)</tspan></text>
     <text x="664" y="424" fill="#8FA9CC" font-size="14" font-style="italic">claimed — no other session picks it up</text>
 
     <!-- Arrows: each slot checks the other host's discovery -->

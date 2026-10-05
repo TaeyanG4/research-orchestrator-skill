@@ -37,7 +37,8 @@ flowchart LR
     E[실험]
     O[HANDOFF<br/>이력 + 산출물 + 블로커 + 다음 상태]
 
-    D --> H --> P --> W --> E --> D
+    D -->|후속 0~N개| H
+    H --> P --> W --> E --> D
     P --> O
     E --> O
     D --> O
@@ -71,7 +72,7 @@ flowchart TD
 
 ## 템플릿과 실제 예시
 
-각 파일은 템플릿에서 만들어집니다. 실제 예시는 진행 중인 프로젝트에서 네 파일이 어떻게 채워지는지 보여 줍니다. 활성 슬롯 두 개(Claude Code의 `Main`, Codex의 `A`)와 해제된 슬롯 하나(`B`), `VERIFIED`된 발견, 검토 중인 발견, 부정 결과, 그리고 이들을 만든 handoff 로그가 들어 있습니다.
+각 파일은 템플릿에서 만들어집니다. 실제 예시는 진행 중인 프로젝트에서 네 파일이 어떻게 채워지는지 보여 줍니다. 활성 슬롯 두 개(Claude Code의 `A`, Codex의 `B`)와 해제된 슬롯 하나(`C`), `VERIFIED`된 발견, 검토 중인 발견, 후속 0개를 이유와 함께 기록한 부정 결과, 같은 호스트 간 작업 넘겨받기, 그리고 이들을 만든 handoff 로그가 들어 있습니다.
 
 | 파일 | 템플릿 | 실제 예시 |
 | --- | --- | --- |
@@ -194,39 +195,39 @@ Antigravity CLI에서 `/skills`로 인식되었는지 확인하세요.
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 ```
 
-여러 독립 에이전트로 시작합니다 (`2` → `Main, A`):
+여러 독립 에이전트로 시작합니다 (`2` → `A, B`):
 
 ```bash
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
 ```
 
-`--agents`에는 `Main,A,B`처럼 이름 목록을 직접 넣을 수도 있습니다. 초기화 스크립트는 중복되거나 표준이 아닌 이름을 거부하고, 없는 파일만 만들며, 기존 프로젝트 파일은 절대 덮어쓰지 않습니다.
+`--agents`에는 `A,B,C`처럼 이름 목록을 직접 넣을 수도 있습니다. 초기화 스크립트는 중복되거나 표준이 아닌 이름을 거부하고, 없는 파일만 만들며, 기존 프로젝트 파일은 절대 덮어쓰지 않습니다.
 
 ## 에이전트 이름
 
 에이전트 이름은 실행하는 도구나 모델이 아니라 **작업 슬롯**입니다. Claude Code, Codex, Antigravity 등 모든 호스트가 같은 이름을 씁니다:
 
 ```text
-Main, A, B, C, ... Z, AA, AB, ... ZZ
+A, B, C, ... Z, AA, AB, ... ZZ
 ```
 
-- 단일 에이전트 작업은 항상 `Main`을 씁니다. 동시에 실행되는 세션이 늘어나면 사용하지 않은 다음 글자를 차례로 쓰고, `Z` 다음은 두 글자 이름으로 이어집니다. 해제된 슬롯을 먼저 재사용하므로, 새 글자는 기존 슬롯이 모두 동시에 사용 중일 때만 생깁니다.
+- 단일 에이전트 작업은 항상 `A`를 씁니다. 동시에 실행되는 세션이 늘어나면 사용하지 않은 다음 글자를 차례로 쓰고, `Z` 다음은 두 글자 이름으로 이어집니다. 해제된 슬롯을 먼저 재사용하므로, 새 글자는 기존 슬롯이 모두 동시에 사용 중일 때만 생깁니다.
 - 에이전트 이름을 `Claude`, `Codex`, `GPT`, `Gemini` 같은 호스트·모델 이름으로 짓지 마세요.
 - 어떤 호스트든 어떤 슬롯이든 이어받을 수 있습니다. 슬롯을 어느 호스트가 맡고 있는지는 이름이 아니라 `handoff.md`에 기록합니다:
 
 ```markdown
-### Agent: Main
+### Agent: A
 - Current host: Claude Code
-- Current thread: H-Main-04
+- Current thread: H-A-04
 ...
 
-### Agent: A
+### Agent: B
 - Current host: Codex
-- Current thread: H-A-02
+- Current thread: H-B-02
 ...
 ```
 
-`Current host`가 `unassigned` 또는 `released`이면 빈 슬롯입니다. 새 세션은 순서상 첫 번째 빈 슬롯을 잡아 `Current host`를 자기 호스트로 바꾸고, 종료할 때 다시 `released`로 돌려놓습니다. 세션이 살아 있는지는 추측하지 않고 파일에서 읽습니다.
+`Current host`가 `unassigned` 또는 `released`이면 빈 슬롯입니다. 새 세션은 순서상 첫 번째 빈 슬롯을 잡되 다른 호스트가 남긴 plan 항목이 있는 슬롯은 건너뛰고, `Current host`를 자기 호스트로 바꾼 뒤, 종료할 때 다시 `released`로 돌려놓습니다. 세션이 살아 있는지는 추측하지 않고 파일에서 읽습니다.
 
 완료 로그의 각 이벤트에도 `Host`가 기록되므로, 슬롯의 주인이 바뀌어도 각 단계를 어느 호스트가 했는지 이력에 남습니다.
 
@@ -234,8 +235,18 @@ ID에는 소유 에이전트가 들어가므로 동시에 작업하는 에이전
 
 | 대상 | 형식 | 예시 |
 | --- | --- | --- |
-| Plan 항목 | `H-<Agent>-<NN>` | `H-Main-01`, `H-A-07` |
-| Discovery | `D-<Agent>-<NNN>` | `D-Main-001`, `D-B-014` |
+| Plan 항목 | `H-<Agent>-<NN>` | `H-A-01`, `H-B-07` |
+| Discovery | `D-<Agent>-<NNN>` | `D-A-001`, `D-C-014` |
+
+## 후속 계획과 작업 넘겨받기
+
+- **발견마다 후속 계획 세우기.** 에이전트는 발견(새 결과, 부정 결과, 교차 확인 판정)을 기록할 때마다 다음에 무엇을 실험할지 정합니다. 새 plan 항목은 0개, 1개, 여러 개 모두 가능하며 각각 중복 확인을 거칩니다. 그 발견으로 영향을 받는 자기 항목은 점수를 다시 매기거나 지웁니다. 0개도 답이 될 수 있지만, 반드시 이유와 함께 `New plan items: none — <reason>`으로 기록합니다.
+- **큐가 비었을 때**는 다음 순서로 일을 찾습니다: 자기 섹션 다시 읽기 → 다른 호스트의 `PENDING` 교차 확인 맡기 → 같은 호스트 슬롯의 항목 넘겨받기 → 발견에서 새 가설 도출 → 기록 후 슬롯 해제.
+- **넘겨받기는 같은 호스트 안에서만 합니다.** 호스트는 모델이 아니라 플랫폼이므로, 모델이 다른 Claude Code 세션 두 개는 같은 호스트입니다. `A`의 큐가 비었고 같은 호스트인 `C`에 대기 항목이 남아 있으면, `A`는 우선순위가 가장 높은 항목을 자기 섹션으로 옮겨 자기 다음 ID를 붙이고(`H-C-02` → `### H-A-04 — … (from H-C-02)`) 이동을 기록합니다. 원래 주인의 `Current thread` 항목은 가져가지 않으며, 다른 호스트가 등록한 항목은 그 호스트에 남겨 둡니다.
+
+<p align="center">
+  <img src="assets/readme/take-over.svg" alt="큐가 빈 Claude Code의 A 슬롯이, 마지막 호스트가 Claude Code였던 해제 슬롯 C의 H-C-02를 H-A-04로 넘겨받음. B 슬롯은 Codex라 그 항목은 B에 남음" width="100%">
+</p>
 
 ## 읽기 규칙
 
@@ -248,7 +259,7 @@ agents.md
 → only its own detailed PLAN section
 ```
 
-에이전트는 작업 조율만을 위해 다른 활성 에이전트의 상세 PLAN을 읽지 **않습니다**. 다른 섹션을 들여다보는 예외는 세 가지뿐입니다. 디스패처가 작업 메타데이터를 읽는 경우, 중복 확인을 위해 항목 제목과 `Hypothesis` 줄을 읽는 경우, 새 세션이 빈 슬롯을 찾으려고 `Current host` 줄을 읽는 경우입니다.
+에이전트는 작업 조율만을 위해 다른 활성 에이전트의 상세 PLAN을 읽지 **않습니다**. 다른 섹션을 들여다보는 예외는 네 가지뿐입니다. 디스패처가 작업 메타데이터를 읽는 경우, 중복 확인을 위해 항목 제목과 `Hypothesis` 줄을 읽는 경우, 빈 슬롯이나 넘겨받을 항목을 찾으려고 `Current host`·`Current thread` 줄을 읽는 경우, 그리고 넘겨받기로 한 항목 하나를 읽는 경우입니다.
 
 ---
 
@@ -257,10 +268,10 @@ agents.md
 진행 중인 미완료 항목만 둡니다.
 
 ```markdown
-### H-Main-07 — Separate duplicate leakage from group leakage
-- Sources: D-A-014, D-Main-021
+### H-A-07 — Separate duplicate leakage from group leakage
+- Sources: D-B-014, D-A-021
 - Hypothesis: exact duplicates explain most apparent group leakage
-- Evidence: D-A-014 weakens after deduplication; D-Main-021 identifies repeated rows
+- Evidence: D-B-014 weakens after deduplication; D-A-021 identifies repeated rows
 - Improvement: isolate exact duplicates before constructing candidate groups
 - Impact: 3
 - Information: 3
@@ -305,21 +316,21 @@ Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost
 # 표준 DISCOVERIES 형식
 
 ```markdown
-## D-A-014 — Random CV may leak groups
-- Source: A
+## D-B-014 — Random CV may leak groups
+- Source: B
 - Host: Codex
 - Cross-check: HOLD
 - Finding: duplicated groups cross random folds
 - Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027
 - Implication: current validation may be optimistic
 - Reviews:
-  - Claude Code (Main): HOLD — plausible, but exact duplicates must be separated first
+  - Claude Code (A): HOLD — plausible, but exact duplicates must be separated first
 ```
 
 검증은 에이전트 단위가 아니라 **호스트** 단위입니다. Codex에서 나온 발견은 Claude Code(또는 다른 호스트)가 **한 번** 확인하고, 그 반대도 마찬가지입니다. 같은 호스트의 세션들은 같은 사각지대를 공유하므로 서로 다시 검토하지 않습니다. Claude Code 세션이 열 개여도 같은 발견을 열 번 검토하지 않습니다.
 
 <p align="center">
-  <img src="assets/readme/cross-host-check.svg" alt="Claude Code의 Main 슬롯이 Codex에서 나온 D-A-003을 교차 확인해 VERIFIED로 표시하고, Codex의 A 슬롯은 Claude Code에서 나온 D-Main-002를 맡아 둔 상태이며, B 슬롯은 released라 재사용 가능" width="100%">
+  <img src="assets/readme/cross-host-check.svg" alt="Claude Code의 A 슬롯이 Codex에서 나온 D-B-003을 교차 확인해 VERIFIED로 표시하고, Codex의 B 슬롯은 Claude Code에서 나온 D-A-002를 맡아 둔 상태이며, C 슬롯은 released라 재사용 가능" width="100%">
 </p>
 
 ```mermaid
@@ -354,17 +365,17 @@ flowchart LR
 # 표준 HANDOFF 형식
 
 ```markdown
-### 2026-10-05 21:10 — Main — H-Main-07
+### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
-- Action: cross-checked D-A-014; removed exact duplicates and rebuilt group candidates
+- Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
 - Result: random/group CV gap shrank from 0.0135 to 0.0041
 - Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-A-014, D-Main-003
-- Review verdict: D-A-014 HOLD
+- Discovery updates: D-B-014, D-A-003
+- Review verdict: D-B-014 HOLD
 - Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
-- New plan items: H-Main-08, H-Main-09
+- New plan items: H-A-08, H-A-09
 - Next resumable action: test near-duplicate clusters
 ```
 
@@ -374,7 +385,7 @@ flowchart LR
 
 # 적응형 워커와 컴퓨트 라우팅
 
-병렬 처리가 유용할 때는 **워커 두 개**(`Main`, `A`)로 시작합니다. 독립적이고 가치 있는 작업과 실제 리소스 여유가 남아 있을 때만 워커를 늘립니다.
+병렬 처리가 유용할 때는 **워커 두 개**(`A`, `B`)로 시작합니다. 독립적이고 가치 있는 작업과 실제 리소스 여유가 남아 있을 때만 워커를 늘립니다.
 
 각 PLAN 항목은 다음을 선언합니다:
 
@@ -421,7 +432,8 @@ research-orchestrator-skill/
 ├── .codex-plugin/plugin.json
 ├── assets/readme/
 │   ├── hero.svg
-│   └── cross-host-check.svg
+│   ├── cross-host-check.svg
+│   └── take-over.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md
@@ -450,7 +462,7 @@ research-orchestrator-skill/
 - **활성 큐만 유지** — 완료된 작업은 PLAN에 쌓이지 않음.
 - **근거 기반 재시도** — 다시 꺼낸 발견에는 근거와 개선점을 명시.
 - **적응형 동시성** — 워커 수는 유용한 작업과 컴퓨트 여유에 따름.
-- **호스트 독립적 에이전트** — `Main`, `A`, `B`, ...는 어떤 호스트든 이어받을 수 있는 슬롯이며, 호스트는 handoff에 기록.
+- **호스트 독립적 에이전트** — `A`, `B`, `C`, ...는 어떤 호스트든 이어받을 수 있는 슬롯이며, 호스트는 handoff에 기록.
 - **안전한 공유 편집** — 공유 파일은 수정 직전에 다시 읽음.
 
 # 검증
@@ -469,7 +481,8 @@ python scripts/validate_release.py
 - README(번역본 포함), SKILL.md, 템플릿, 실제 예시의 PLAN·DISCOVERIES·HANDOFF가 정확한 필드 순서를 따름.
 - 발견에 `Host`와 올바른 `Cross-check` 상태가 기록되고, 검토는 `<Host> (<Agent>)` 형식에 `CLOSED`, `HOLD`, `CHALLENGED` 중 하나를 쓰며, 작성자와 같은 호스트에서 오지 않음(`same host —` 표시 제외).
 - Resource 값은 PLAN에서 `CPU`/`GPU`/`EITHER`, HANDOFF에서 `CPU`/`GPU`/`Other`/`none`.
-- 에이전트 이름은 `Main`, `A`-`Z`, `AA`-`ZZ`이고, ID는 `H-<Agent>-NN`과 `D-<Agent>-NNN` 형식을 따름.
+- 실제 handoff 기록은 새 plan 항목을 나열하거나 `none — <reason>`으로 이유를 밝히고, 실제 `Priority` 값은 공식과 일치함.
+- 에이전트 이름은 `A`-`Z`, `AA`-`ZZ`이고, ID는 `H-<Agent>-NN`과 `D-<Agent>-NNN` 형식을 따름.
 - 모든 README가 언어 전환 링크를 갖고, 상대 링크가 실제로 존재하며, 같은 이미지와 코드 블록 구조를 유지함.
 - 실제 예시의 `agents.md`가 현재 초기화 스크립트가 만드는 내용과 같음.
 - 초기화 스크립트는 LF로 파일을 쓰고, 중복되거나 표준이 아닌 에이전트 이름을 거부하며, 기존 프로젝트 파일을 덮어쓰지 않음.

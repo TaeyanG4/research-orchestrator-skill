@@ -23,19 +23,20 @@ An agent name is a **work slot**, not the identity of the tool or model running 
 Allowed names, assigned in this order:
 
 ```text
-Main, A, B, C, ... Z, AA, AB, ... ZZ
+A, B, C, ... Z, AA, AB, ... ZZ
 ```
 
-- `Main` is the default slot. Single-agent work always uses `Main`.
-- Each additional concurrent session takes the next unused letter: the second is `A`, the third is `B`, and so on. After `Z` come two-letter names in spreadsheet-column order (`AA`, `AB`, ...). Slots are reused once released, so new letters are needed only when every existing slot is taken at the same time.
+- `A` is the first slot. Single-agent work always uses `A`.
+- Each additional concurrent session takes the next unused letter: the second is `B`, the third is `C`, and so on. After `Z` come two-letter names in spreadsheet-column order (`AA`, `AB`, ...). Slots are reused once released, so new letters are needed only when every existing slot is taken at the same time.
 - Never use a host, product, or model name (`Claude`, `Codex`, `GPT`, `Gemini`, `Antigravity`, `Opus`, `Sonnet`, ...) or a free-form role name as an agent name.
+- A **host** is the platform the session runs on (`Claude Code`, `Codex`, `Antigravity`, ...), not the model. Two Claude Code sessions running different models are the same host.
 - Track hosts in fields, never in the name:
   - `Current host` in the agent's active handoff section (`handoff.md`) says which host owns the slot right now. Set it whenever a session takes or resumes the slot.
   - `Host` in each completed-log event (`handoff.md`) says which host did that step.
   - `Host` in each discovery (`discoveries.md`) says which host made it; a different host cross-checks it (section 5).
 - Continue the same thread with the same agent name, even when a different host resumes it; only `Current host` changes.
 - A slot is **free** when its `Current host` is `unassigned` or `released`, and **taken** otherwise. Liveness is never guessed; it is read from that line.
-- If the user assigns a name, use it. Otherwise read only the `Current host` line of each agent section in `handoff.md` and take the first free slot in order (`Main`, `A`, `B`, ...). If none is free, create the next unused letter: add its `## Agent:` plan section, its `### Agent:` handoff section, and its name under `Active agent(s)`.
+- If the user assigns a name, use it. Otherwise read only the `Current host` line of each agent section in `handoff.md` and take the first free slot in order (`A`, `B`, `C`, ...). Skip a free slot that still holds plan items left by a different host — those stay with that host (section 4) unless the user assigns you the slot. If none is free, create the next unused letter: add its `## Agent:` plan section, its `### Agent:` handoff section, and its name under `Active agent(s)`.
 - When you take or resume a slot, set `Current host: <your host>` first. When you close the session, set `Current host: released` (section 10). A slot left taken by a crashed session may be reclaimed only when the user says so.
 - Add agents only when independent useful work exists.
 
@@ -43,10 +44,10 @@ Every ID embeds the owning agent name so concurrent agents never collide:
 
 | Object | Format | Examples |
 | --- | --- | --- |
-| Plan item | `H-<Agent>-<NN>` | `H-Main-01`, `H-A-07` |
-| Discovery | `D-<Agent>-<NNN>` | `D-Main-001`, `D-B-014` |
-| Plan / handoff section | `Agent: <Agent>` | `## Agent: Main` |
-| Discovery review | `<Host> (<Agent>): <VERDICT>` | `Claude Code (Main): CLOSED` |
+| Plan item | `H-<Agent>-<NN>` | `H-A-01`, `H-B-07` |
+| Discovery | `D-<Agent>-<NNN>` | `D-A-001`, `D-C-014` |
+| Plan / handoff section | `Agent: <Agent>` | `## Agent: A` |
+| Discovery review | `<Host> (<Agent>): <VERDICT>` | `Claude Code (A): CLOSED` |
 
 Each agent numbers only its own IDs, sequentially, and never reuses a number.
 
@@ -57,23 +58,24 @@ Each agent numbers only its own IDs, sequentially, and never reuses a number.
 3. Read the shared completed/review log in `handoff.md` plus only the current agent's active handoff section.
 4. Read only the current agent's detailed section in `plan.md`.
 
-Three narrow exceptions allow looking across other agents' sections:
+Four narrow exceptions allow looking across other agents' sections:
 
-- A resource dispatcher may inspect only task metadata: task ID, owner, priority, resource, parallel-safety, and `Other` executor.
+- A resource dispatcher, or a session choosing a take-over item, may inspect only task metadata: task ID, owner, priority, cost, information, resource, parallel-safety, and `Other` executor.
 - Before adding a plan item, any agent may scan only item headings and `Hypothesis` lines to avoid queueing a duplicate (section 3).
-- When choosing a slot, a session may read only the `Current host` line of each agent's handoff section (section 1).
+- When choosing a slot or a take-over source, a session may read only the `Current host` and `Current thread` lines of each agent's handoff section (sections 1 and 4).
+- When taking over an item from a same-host slot, a session reads that one item in full once it has chosen it by metadata (section 4).
 
 Do not read another active agent's detailed evidence, scores, next tests, or resumable state merely for coordination.
 
 ## 3. Keep `plan.md` as a scored live queue
 
-Store only active unfinished hypotheses, experiments, reviews, or next actions. Each agent edits only its own section unless explicitly asked otherwise.
+Store only active unfinished hypotheses, experiments, reviews, or next actions. Each agent edits only its own section, except when taking over an item from a same-host slot (section 4) or when explicitly asked otherwise.
 
 Use this exact item shape:
 
 ```markdown
-### H-Main-01 — Short title
-- Sources: D-A-003, D-Main-008 / none
+### H-A-01 — Short title
+- Sources: D-B-003, D-A-008 / none
 - Hypothesis: ...
 - Evidence: ...
 - Improvement: ...
@@ -136,16 +138,59 @@ Work highest score first unless blocked or explicitly overridden. Break ties by 
 
 Whenever a new discovery or review verdict changes the evidence, rescore affected active items.
 
-## 4. Remove completed work from `plan.md`
+## 4. Finish an item, plan what follows, and keep going
 
 When a plan item finishes:
 
 1. Append the action and outcome to `handoff.md`.
 2. Record the result in `discoveries.md`: reusable knowledge when useful, and **always** a negative-result discovery (`Finding: <claim> does not hold under <conditions>`) when the hypothesis failed or was disproved.
-3. Add any follow-up hypotheses to `plan.md` with fresh scores.
+3. Plan the follow-ups from that discovery (below).
 4. Remove the completed item from `plan.md`.
 
 Do not accumulate `[done]` items in `plan.md`. A failed or disproved hypothesis is still completed work and must leave the live queue. Because `discoveries.md` is the one file every agent reads in full, it is also the index of settled ideas: a failed hypothesis that is not recorded there will eventually be proposed again.
+
+### Plan follow-ups from every discovery (zero or more)
+
+Every time you write or update a discovery — a new finding, a negative result, or a cross-check verdict — decide explicitly what it changes before picking your next item:
+
+1. **What next test could change a decision now?** Write each one as a new plan item in your own section, with `Sources` (the discovery), `Evidence` (the concrete numbers or observations), and `Improvement` (what this test does that earlier ones did not). Each must pass the duplicate check (section 3).
+2. **Which of your existing items does it affect?** Rescore them; remove items it made pointless and say so in the handoff event.
+3. **Zero follow-ups is a valid answer**, but it must be deliberate. Record it as `New plan items: none — <reason>` in the handoff event (for example `none — result closes this direction` or `none — H-B-02 already covers it`).
+
+One discovery may yield many items, and one item may combine several discoveries. Prefer the few items that would change a decision over many small variations.
+
+### When your own queue runs out
+
+Before going idle, look for work in this order:
+
+1. **Your own section** — re-read it first; a same-host session may have taken items from it (the handoff log says so).
+2. **Cross-checks** — claim a `PENDING` discovery from a different host (section 5).
+3. **Take over from a same-host slot** — see below.
+4. **New hypotheses** — derive zero or more items from discoveries (section 3 checks apply).
+5. **Nothing worthwhile left** — record this in your active handoff section, set `Current host: released`, and stop. Do not invent low-value work to stay busy.
+
+#### Take over an item from a same-host slot
+
+When your own queue is empty, you may take over a queued item from another slot **on the same host**, even if that session runs a different model. Items queued under a different host stay with that host, so each host's line of reasoning stays independent.
+
+Eligible sources:
+
+- a slot whose `Current host` equals your host (an active same-host session), or
+- a `released` or `unassigned` slot whose most recent completed-log event was made by your host.
+
+Items left by a different host in a released slot are taken over only by that host, or by any host when the user says so.
+
+Never take the item named in the owner's `Current thread`; that one is in progress.
+
+Steps:
+
+1. Choose by metadata only: the highest-`Priority` eligible item (ties by lower `Cost`, then higher `Information`) whose `Resource` you can run now.
+2. Re-read `plan.md` immediately before moving it. If the item is gone, another session took it; choose again.
+3. **Move it into your own section with your own ID**: cut the block from the source section, give it your next number (`H-C-03` becomes, for example, `H-A-05`), and append the old ID to the title — `### H-A-05 — Fold-aware target encoding (from H-C-03)`. The old ID is retired and never reused.
+4. Rescore it against the current discoveries; it is your item now.
+5. Append a handoff event: `Action: took over H-C-03 from C (same host) as H-A-05`.
+
+The original owner, on its next re-read of its own section, finds the item gone and the reason in the handoff log.
 
 ## 5. Use `discoveries.md` as shared knowledge with cross-host verification
 
@@ -154,21 +199,21 @@ Every agent reads the whole file. Verification is per **host**, not per agent: a
 Use this exact shape:
 
 ```markdown
-## D-A-014 — Short title
-- Source: A
+## D-B-014 — Short title
+- Source: B
 - Host: Codex
 - Cross-check: VERIFIED
 - Finding: ...
 - Evidence: ...
 - Implication: ...
 - Reviews:
-  - Claude Code (Main): CLOSED — reproduced independently with ...
+  - Claude Code (A): CLOSED — reproduced independently with ...
 ```
 
 `Cross-check` is the discovery's verification state:
 
 - `PENDING`: no different host has reviewed it yet. New discoveries start here.
-- `REVIEWING <Host> (<Agent>)`: a different-host session has claimed the review, for example `REVIEWING Claude Code (Main)`.
+- `REVIEWING <Host> (<Agent>)`: a different-host session has claimed the review, for example `REVIEWING Claude Code (A)`.
 - `VERIFIED`: a different host reviewed it and recorded `CLOSED`.
 - `HOLD`: a different host found it plausible but needs specific evidence, a condition change, or an improvement first.
 - `CHALLENGED`: a host found a material contradiction, flaw, or missing assumption.
@@ -179,7 +224,7 @@ Rules:
 
 - The source does not review its own discovery; the discovery is its claim.
 - Review only discoveries whose `Host` differs from yours and whose `Cross-check` is `PENDING`, or `HOLD` when its stated condition is now met.
-- Claim a review by setting `Cross-check: REVIEWING <your host> (<your agent>)` before starting, so two sessions do not review the same discovery. Take over a claim only when the claiming agent's `Current host` reads `released` or `unassigned` (the one line you may read, section 2), or the user says so.
+- Claim a review by setting `Cross-check: REVIEWING <your host> (<your agent>)` before starting, so two sessions do not review the same discovery. Take over a claim only when the claiming agent's `Current host` reads `released` or `unassigned` (lines you may read, section 2), or the user says so.
 - One cross-host review is enough. Add another only when the discovery is high impact or disputed.
 - A `HOLD` or `CHALLENGED` review must state what evidence or change would make the discovery acceptable.
 - When the source revises a `HOLD` or `CHALLENGED` discovery with new evidence, it updates `Evidence`, keeps the old reviews, and resets `Cross-check` to `PENDING`.
@@ -202,11 +247,11 @@ Every plan item derived from discoveries must include:
 - `Evidence`: the concrete evidence that makes the new hypothesis worth testing.
 - `Improvement`: the missing proof, changed condition, stronger method, or specific weakness the new test will address.
 
-Do not write only `Sources: D-A-014` and repeat the same experiment. Explain why the new attempt is materially better or different. Do not edit another agent's active plan merely because its discovery suggested a direction.
+Do not write only `Sources: D-B-014` and repeat the same experiment. Explain why the new attempt is materially better or different. Do not edit another agent's active plan merely because its discovery suggested a direction.
 
 ## 6. Scale workers from 2 to practical full load
 
-When parallel work is useful, start with two independent agents (`Main` and `A`). Add more only while all are true:
+When parallel work is useful, start with two independent agents (`A` and `B`). Add more only while all are true:
 
 - independent high-value plan items remain;
 - CPU, GPU, RAM, disk I/O, and remote quotas have headroom;
@@ -244,9 +289,9 @@ Do not launch low-value experiments merely to keep hardware busy. Priority decid
 Keep unfinished resumable detail inside the current agent's active handoff section:
 
 ```markdown
-### Agent: A
+### Agent: B
 - Current host: Codex
-- Current thread: H-A-03
+- Current thread: H-B-03
 - Resumable state: ...
 - Blocker: none
 - Next action: ...
@@ -257,19 +302,21 @@ Put completed work and review events in the shared log, append-only.
 Use this event shape:
 
 ```markdown
-### YYYY-MM-DD HH:MM — Main — H-Main-01
+### YYYY-MM-DD HH:MM — A — H-A-01
 - Host: Claude Code | Codex | Antigravity | <other>
 - Action: ...
 - Result: ...
 - Evidence: ...
-- Discovery updates: D-Main-014 / none
+- Discovery updates: D-A-014 / none
 - Review verdict: <discovery ID> CLOSED | HOLD | CHALLENGED / none
 - Files/metrics: ...
 - Resource: CPU | GPU | Other | none
 - Other executor: Kaggle / none
-- New plan items: H-Main-02, H-Main-03 / none
+- New plan items: H-A-02, H-A-03 / none — <reason>
 - Next resumable action: ...
 ```
+
+`New plan items` is never a bare `none`: zero follow-ups always carries a reason (section 4).
 
 Do not copy detailed active hypotheses from `plan.md` into handoff text.
 
@@ -302,7 +349,7 @@ Run:
 ```bash
 python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name"
 python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --agents 2
-python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --agents Main,A,B
+python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --agents A,B,C
 ```
 
-`--agents` takes either a count (`2` → `Main, A`) or a comma-separated list of allowed names. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files. To add an agent to an existing project, add its `## Agent: <name>` plan section, its `### Agent: <name>` handoff section, and its name under `Active agent(s)`.
+`--agents` takes either a count (`2` → `A, B`) or a comma-separated list of allowed names. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files. To add an agent to an existing project, add its `## Agent: <name>` plan section, its `### Agent: <name>` handoff section, and its name under `Active agent(s)`.

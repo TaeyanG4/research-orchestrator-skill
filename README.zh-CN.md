@@ -37,7 +37,8 @@ flowchart LR
     E[实验]
     O[HANDOFF<br/>历史 + 产物 + 阻碍 + 下一状态]
 
-    D --> H --> P --> W --> E --> D
+    D -->|0~N 个后续| H
+    H --> P --> W --> E --> D
     P --> O
     E --> O
     D --> O
@@ -71,7 +72,7 @@ flowchart TD
 
 ## 模板与完整示例
 
-每个文件都由模板生成。完整示例展示了进行中的项目里这四个文件实际填写后的样子：两个活动槽位（Claude Code 上的 `Main`、Codex 上的 `A`）和一个已释放的槽位（`B`），一个 `VERIFIED` 的发现、一个正在审查的发现、一个负面结果，以及产生它们的 handoff 日志。
+每个文件都由模板生成。完整示例展示了进行中的项目里这四个文件实际填写后的样子：两个活动槽位（Claude Code 上的 `A`、Codex 上的 `B`）和一个已释放的槽位（`C`），一个 `VERIFIED` 的发现、一个正在审查的发现、一个附理由记录“零后续”的负面结果、一次同主机接手，以及产生它们的 handoff 日志。
 
 | 文件 | 模板 | 完整示例 |
 | --- | --- | --- |
@@ -194,39 +195,39 @@ Antigravity CLI 旧版/全局位置：
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 ```
 
-以多个独立代理开始（`2` → `Main, A`）：
+以多个独立代理开始（`2` → `A, B`）：
 
 ```bash
 python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
 ```
 
-`--agents` 也接受 `Main,A,B` 这样的显式名称列表。初始化脚本会拒绝重复或非标准的名称，只创建缺失的文件，绝不覆盖已有的项目文件。
+`--agents` 也接受 `A,B,C` 这样的显式名称列表。初始化脚本会拒绝重复或非标准的名称，只创建缺失的文件，绝不覆盖已有的项目文件。
 
 ## 代理名称
 
 代理名称是一个**工作槽位**，而不是运行它的工具或模型。所有主机——Claude Code、Codex、Antigravity——都使用相同的名称：
 
 ```text
-Main, A, B, C, ... Z, AA, AB, ... ZZ
+A, B, C, ... Z, AA, AB, ... ZZ
 ```
 
-- 单代理工作始终使用 `Main`；每增加一个并发会话，就使用下一个未使用的字母，`Z` 之后继续使用两个字母的名称。已释放的槽位会被优先复用，因此只有当所有现有槽位同时被占用时才会出现新字母。
+- 单代理工作始终使用 `A`；每增加一个并发会话，就使用下一个未使用的字母，`Z` 之后继续使用两个字母的名称。已释放的槽位会被优先复用，因此只有当所有现有槽位同时被占用时才会出现新字母。
 - 不要用 `Claude`、`Codex`、`GPT`、`Gemini` 或任何其他主机/模型名称为代理命名。
 - 任何主机都可以接续任何槽位。槽位由哪个主机持有记录在 `handoff.md` 中，而不是体现在名称里：
 
 ```markdown
-### Agent: Main
+### Agent: A
 - Current host: Claude Code
-- Current thread: H-Main-04
+- Current thread: H-A-04
 ...
 
-### Agent: A
+### Agent: B
 - Current host: Codex
-- Current thread: H-A-02
+- Current thread: H-B-02
 ...
 ```
 
-当 `Current host` 为 `unassigned` 或 `released` 时，该槽位是空闲的。新会话按顺序占用第一个空闲槽位，把 `Current host` 设为自己的主机，并在结束时改回 `released`——因此会话是否存活是从文件中读取的，而不是猜测的。
+当 `Current host` 为 `unassigned` 或 `released` 时，该槽位是空闲的。新会话按顺序占用第一个空闲槽位（跳过仍留有其他主机计划条目的槽位），把 `Current host` 设为自己的主机，并在结束时改回 `released`——因此会话是否存活是从文件中读取的，而不是猜测的。
 
 每条完成日志事件也会记录其 `Host`，因此即使槽位易主，历史中仍能看出每一步由哪个主机完成。
 
@@ -234,8 +235,18 @@ ID 中包含所属代理，因此并发代理之间的 ID 永远不会冲突：
 
 | 对象 | 格式 | 示例 |
 | --- | --- | --- |
-| 计划条目 | `H-<Agent>-<NN>` | `H-Main-01`, `H-A-07` |
-| 发现 | `D-<Agent>-<NNN>` | `D-Main-001`, `D-B-014` |
+| 计划条目 | `H-<Agent>-<NN>` | `H-A-01`, `H-B-07` |
+| 发现 | `D-<Agent>-<NNN>` | `D-A-001`, `D-C-014` |
+
+## 后续计划与接手
+
+- **每个发现都要规划后续。** 代理每次记录发现（新结果、负面结果或交叉检查结论）时，都要决定下一步测试什么：新计划条目可以是零个、一个或多个，且每个都要通过重复检查。它还会重新评分或删除受该发现影响的自有条目。零个也是有效答案，但必须附上理由，记录为 `New plan items: none — <reason>`。
+- **队列用完时**，按以下顺序寻找工作：重新阅读自己的分区 → 认领另一主机的 `PENDING` 交叉检查 → 接手同一主机槽位的条目 → 从发现中推导新假设 → 记录后释放槽位。
+- **接手只在同一主机内进行。** 主机指平台而非模型：使用不同模型的两个 Claude Code 会话属于同一主机。如果 `A` 的队列已空，而同一主机的 `C` 仍有排队条目，`A` 会把优先级最高的条目移到自己的分区并使用自己的下一个 ID（`H-C-02` 变为 `### H-A-04 — … (from H-C-02)`），并记录这次移动。它绝不接手原所有者 `Current thread` 中的条目，由其他主机排队的条目留给该主机。
+
+<p align="center">
+  <img src="assets/readme/take-over.svg" alt="Claude Code 上的 A 槽位队列已空，于是把已释放槽位 C（上一主机为 Claude Code）的 H-C-02 接手为 H-A-04；B 槽位运行在 Codex 上，其条目留在 B" width="100%">
+</p>
 
 ## 阅读规则
 
@@ -248,7 +259,7 @@ agents.md
 → only its own detailed PLAN section
 ```
 
-代理**不会**仅为了协调工作而阅读其他活动代理的详细 PLAN。跨分区查看的例外只有三种：调度器读取任务元数据、重复检查读取条目标题和 `Hypothesis` 行、新会话读取 `Current host` 行以寻找空闲槽位。
+代理**不会**仅为了协调工作而阅读其他活动代理的详细 PLAN。跨分区查看的例外只有四种：调度器读取任务元数据、重复检查读取条目标题和 `Hypothesis` 行、会话读取 `Current host` 和 `Current thread` 行以寻找空闲槽位或可接手的条目，以及读取自己决定接手的那一个条目。
 
 ---
 
@@ -257,10 +268,10 @@ agents.md
 只保留进行中的未完成条目。
 
 ```markdown
-### H-Main-07 — Separate duplicate leakage from group leakage
-- Sources: D-A-014, D-Main-021
+### H-A-07 — Separate duplicate leakage from group leakage
+- Sources: D-B-014, D-A-021
 - Hypothesis: exact duplicates explain most apparent group leakage
-- Evidence: D-A-014 weakens after deduplication; D-Main-021 identifies repeated rows
+- Evidence: D-B-014 weakens after deduplication; D-A-021 identifies repeated rows
 - Improvement: isolate exact duplicates before constructing candidate groups
 - Impact: 3
 - Information: 3
@@ -305,21 +316,21 @@ Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost
 # 标准 DISCOVERIES 格式
 
 ```markdown
-## D-A-014 — Random CV may leak groups
-- Source: A
+## D-B-014 — Random CV may leak groups
+- Source: B
 - Host: Codex
 - Cross-check: HOLD
 - Finding: duplicated groups cross random folds
 - Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027
 - Implication: current validation may be optimistic
 - Reviews:
-  - Claude Code (Main): HOLD — plausible, but exact duplicates must be separated first
+  - Claude Code (A): HOLD — plausible, but exact duplicates must be separated first
 ```
 
 验证以**主机**为单位，而不是以代理为单位。在 Codex 上产生的发现由 Claude Code（或其他不同的主机）检查**一次**，反之亦然。同一主机上的会话共享相同的盲点，因此不会互相重新审查——十个 Claude Code 会话绝不会把同一个发现审查十次。
 
 <p align="center">
-  <img src="assets/readme/cross-host-check.svg" alt="Claude Code 上的 Main 槽位交叉检查来自 Codex 的 D-A-003 并标记为 VERIFIED；Codex 上的 A 槽位已认领来自 Claude Code 的 D-Main-002；B 槽位已释放，可被复用" width="100%">
+  <img src="assets/readme/cross-host-check.svg" alt="Claude Code 上的 A 槽位交叉检查来自 Codex 的 D-B-003 并标记为 VERIFIED；Codex 上的 B 槽位已认领来自 Claude Code 的 D-A-002；C 槽位已释放，可被复用" width="100%">
 </p>
 
 ```mermaid
@@ -354,17 +365,17 @@ flowchart LR
 # 标准 HANDOFF 格式
 
 ```markdown
-### 2026-10-05 21:10 — Main — H-Main-07
+### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
-- Action: cross-checked D-A-014; removed exact duplicates and rebuilt group candidates
+- Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
 - Result: random/group CV gap shrank from 0.0135 to 0.0041
 - Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-A-014, D-Main-003
-- Review verdict: D-A-014 HOLD
+- Discovery updates: D-B-014, D-A-003
+- Review verdict: D-B-014 HOLD
 - Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
-- New plan items: H-Main-08, H-Main-09
+- New plan items: H-A-08, H-A-09
 - Next resumable action: test near-duplicate clusters
 ```
 
@@ -374,7 +385,7 @@ flowchart LR
 
 # 自适应工作者与计算路由
 
-在并行有用时，从**两个工作者**（`Main`、`A`）开始。只有在仍有独立的高价值工作和实际资源余量时才增加工作者。
+在并行有用时，从**两个工作者**（`A`、`B`）开始。只有在仍有独立的高价值工作和实际资源余量时才增加工作者。
 
 每个 PLAN 条目声明：
 
@@ -421,7 +432,8 @@ research-orchestrator-skill/
 ├── .codex-plugin/plugin.json
 ├── assets/readme/
 │   ├── hero.svg
-│   └── cross-host-check.svg
+│   ├── cross-host-check.svg
+│   └── take-over.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md
@@ -450,7 +462,7 @@ research-orchestrator-skill/
 - **只保留活动队列** — 已完成的工作不会在 PLAN 中堆积。
 - **基于证据的重试** — 重新提出的发现要说明证据和改进。
 - **自适应并发** — 工作者数量取决于有用的工作和计算余量。
-- **与主机无关的代理** — `Main`、`A`、`B`……是任何主机都能接续的槽位；主机记录在 handoff 中。
+- **与主机无关的代理** — `A`、`B`、`C`……是任何主机都能接续的槽位；主机记录在 handoff 中。
 - **安全的共享编辑** — 修改共享文件前先重新读取。
 
 # 验证
@@ -469,7 +481,8 @@ python scripts/validate_release.py
 - README（含译本）、SKILL.md、模板和完整示例中的 PLAN、DISCOVERIES、HANDOFF 使用准确的字段顺序。
 - 发现记录了 `Host` 和有效的 `Cross-check` 状态；审查使用 `<Host> (<Agent>)` 格式及 `CLOSED`、`HOLD` 或 `CHALLENGED`，且不来自作者所在的主机（标注 `same host —` 的除外）。
 - Resource 值在 PLAN 中为 `CPU`/`GPU`/`EITHER`，在 HANDOFF 中为 `CPU`/`GPU`/`Other`/`none`。
-- 代理名称为 `Main`、`A`-`Z` 或 `AA`-`ZZ`；ID 遵循 `H-<Agent>-NN` 和 `D-<Agent>-NNN`。
+- 实际的 handoff 事件会列出新计划条目或写明 `none — <reason>`；具体的 `Priority` 值与公式一致。
+- 代理名称为 `A`-`Z` 或 `AA`-`ZZ`；ID 遵循 `H-<Agent>-NN` 和 `D-<Agent>-NNN`。
 - 所有 README 都有语言切换链接，相对链接均存在，并保持相同的图片和代码块结构。
 - 完整示例中的 `agents.md` 与初始化脚本当前生成的内容一致。
 - 初始化脚本以 LF 写入文件，拒绝重复或非标准的代理名称，且绝不覆盖已有的项目文件。
