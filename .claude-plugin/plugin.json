@@ -1,0 +1,11 @@
+{
+  "name": "research-orchestrator",
+  "version": "1.0.0",
+  "description": "Hypothesis-driven research orchestration with scored plans, independent discovery review, adaptive workers, resource-aware execution, and durable handoffs.",
+  "author": {
+    "name": "TaeyanG4"
+  },
+  "homepage": "https://github.com/TaeyanG4/research-orchestrator-skill",
+  "repository": "https://github.com/TaeyanG4/research-orchestrator-skill",
+  "license": "MIT"
+}
