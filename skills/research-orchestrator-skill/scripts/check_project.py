@@ -38,6 +38,9 @@ H_ID = re.compile(r"\bH-[A-Za-z]+-\d+\b")
 D_ID = re.compile(r"\bD-[A-Za-z]+-\d+\b")
 FIELD = re.compile(r"^- ([A-Za-z/() -]+?):\s?(.*)$")
 REVIEW = re.compile(r"^\s+- (.+?) \((\S+)\): (\S+) — ")
+TAKE_OVER = re.compile(
+    r"^took over (H-[A-Za-z]+-\d+) from ([A-Z]{1,2}) \((same host|cross-host:.*?)\) as (H-[A-Za-z]+-\d+)"
+)
 SHARED_VALUE = re.compile(r"(?i)\b(champion|current best|best model|baseline)\b\s*[:=]")
 
 
@@ -243,6 +246,8 @@ class Checker:
                 missing = [f for f in EVENT_FIELDS if f not in event.order]
                 self.problem(where, f"event fields do not match the handoff format (missing: {missing or 'none'}; check order)", event.owner)
             action = event.fields.get("Action", "")
+            if action.startswith("took over"):
+                self.check_take_over(event, action, where)
             if event.key.lower() != "none" and not H_ID.fullmatch(event.key):
                 self.problem(where, f"event heading ends in '{event.key}'; use the completed plan item ID or 'none'", event.owner)
             for item_id in re.findall(r"removed (H-[A-Za-z]+-\d+)", action):
@@ -269,6 +274,34 @@ class Checker:
                 for disc_id in D_ID.findall(event.fields.get(name, "")):
                     if disc_id not in self.discoveries:
                         self.problem(where, f"'{name}' names {disc_id}, which is not in discoveries.md", event.owner)
+
+    def check_take_over(self, event: Block, action: str, where: str) -> None:
+        """A take-over names the old ID, source slot, kind, and new ID; cross-host ones give a reason."""
+        match = TAKE_OVER.match(action)
+        if not match:
+            self.problem(
+                where,
+                "take-over must read 'took over H-… from X (same host) as H-…' or "
+                "'took over H-… from X (cross-host: <from> → <to>; reason: <why>) as H-…'",
+                event.owner,
+            )
+            return
+        old_id, source, kind, new_id = match.groups()
+        if new_id != event.key:
+            self.problem(where, f"take-over names new ID {new_id} but the event heading is {event.key}", event.owner)
+        if not new_id.startswith(f"H-{event.owner}-"):
+            self.problem(where, f"take-over gives {new_id}, which is not an ID of agent {event.owner}", event.owner)
+        if old_id.startswith(f"H-{event.owner}-") or source == event.owner:
+            self.problem(where, f"agent {event.owner} cannot take over its own item {old_id}", event.owner)
+        if kind.startswith("cross-host"):
+            reason = kind.split("reason:", 1)[1].strip() if "reason:" in kind else ""
+            if not reason:
+                self.problem(where, "cross-host take-over must state a reason", event.owner)
+            hosts = kind[len("cross-host:"):].split(";", 1)[0]
+            target = hosts.split("→")[-1].strip()
+            if target and target != event.fields.get("Host", ""):
+                self.problem(where, f"cross-host take-over names '{target}' as the new host, but the event's Host is "
+                                    f"'{event.fields.get('Host', '')}'", event.owner)
 
     def check_retired(self) -> None:
         for item_id in self.retired:

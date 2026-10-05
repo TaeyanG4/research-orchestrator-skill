@@ -46,7 +46,7 @@ Use this exact format:
 - The heading's last part is the plan item the event completed; write `none` for a step that completes nothing (a routing change, a session close) and the new ID for a take-over. Items you drop as pointless are named in `Action` as `removed H-A-05 — <reason>`.
 - `Result` is one line; for an experiment it points to the discovery instead of restating its numbers.
 - `Artifacts` lists paths only. Metrics and their meaning belong in the discovery.
-- Every completed experiment creates or updates a discovery, so `Discovery updates: none — <reason>` is only for steps that are not experiments, such as a take-over (`Action: took over H-C-03 from C (same host) as H-A-05`).
+- Every completed experiment creates or updates a discovery, so `Discovery updates: none — <reason>` is only for steps that are not experiments, such as a take-over (`Action: took over H-C-03 from C (same host) as H-A-05`). A cross-host take-over states the hosts and the reason: `took over H-C-01 from C (cross-host: Codex → Claude Code; reason: <one line>) as H-A-12`.
 - `New plan items` is never a bare `none`; zero follow-ups always gives a reason.
 - There is no next-step line here; the slot's `Next action` above is the only one.
 

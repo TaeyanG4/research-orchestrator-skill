@@ -64,7 +64,7 @@ Four narrow exceptions allow looking across other agents' sections:
 - A resource dispatcher, or a session choosing a take-over item, may inspect only task metadata: task ID, owner, priority, cost, information, resource, parallel-safety, and `Other` executor.
 - Before adding a plan item, any agent may scan only item headings and `Hypothesis` lines to avoid queueing a duplicate (section 3).
 - When choosing a slot or a take-over source, a session may read only the `Current host` and `Current thread` lines of each agent's handoff section (sections 1 and 4).
-- When taking over an item from a same-host slot, a session reads that one item in full once it has chosen it by metadata (section 4).
+- When taking over an item (same host, or cross-host by judgment), a session reads that one item in full once it has chosen it by metadata (section 4).
 
 Do not read another active agent's detailed evidence, scores, next tests, or resumable state merely for coordination.
 
@@ -171,8 +171,9 @@ Before going idle, look for work in this order:
 1. **Your own section** — re-read it first; a same-host session may have taken items from it (the handoff log says so).
 2. **Cross-checks** — claim a `PENDING` discovery from a different host (section 5).
 3. **Take over from a same-host slot** — see below.
-4. **New hypotheses** — derive zero or more items from discoveries (section 3 checks apply).
-5. **Nothing worthwhile left** — record this in your active handoff section, set `Current host: released`, and stop. Do not invent low-value work to stay busy.
+4. **Cross-host take-over by judgment** — only one promising item, under the conditions below.
+5. **New hypotheses** — derive zero or more items from discoveries (section 3 checks apply).
+6. **Nothing worthwhile left** — record this in your active handoff section, set `Current host: released`, and stop. Do not invent low-value work to stay busy.
 
 #### Take over an item from a same-host slot
 
@@ -181,9 +182,9 @@ When your own queue is empty, you may take over a queued item from another slot 
 Eligible sources:
 
 - a slot whose `Current host` equals your host (an active same-host session), or
-- a `released` or `unassigned` slot whose most recent completed-log event was made by your host.
+- a `released` or `unassigned` slot whose most recent completed-log event was made by your host, or that has no completed-log events at all (items seeded by the user carry no host history, so any host may take them).
 
-Items left by a different host in a released slot are taken over only by that host, or by any host when the user says so.
+Items left by a different host in a released slot normally stay with that host. They can move only through a cross-host take-over by judgment (below), or when the user says so.
 
 Never take the item named in the owner's `Current thread`; that one is in progress.
 
@@ -196,6 +197,23 @@ Steps:
 5. Append a handoff event: `Action: took over H-C-03 from C (same host) as H-A-05`, with `Discovery updates: none — take-over, no experiment`.
 
 The original owner, on its next re-read of its own section, finds the item gone and the reason in the handoff log.
+
+#### Cross-host take-over by judgment
+
+By default a different host's items stay with that host, so each host keeps an independent line of reasoning. As an exception, you may take over **one** item queued by a different host when your judgment is that it is clearly worth running now. All of these must hold:
+
+1. **Nothing closer is left**: your own queue, eligible cross-checks, and same-host items are exhausted (steps 1–3 above).
+2. **The source slot is idle**: it is `released` or `unassigned`. Never take from a slot whose `Current host` is an active session on another host, and never the owner's `Current thread`.
+3. **The item is promising**: its `Priority` is at least 15 (out of 24), and it clearly beats the best new hypothesis you could write now. You can state in one line why it is likely to change a decision now — for example, it is a cheap diagnostic that decides whether the remaining items are worth running.
+4. **One item at a time**: take one, finish it, then start this list again from step 1. The source host's other items stay where they are.
+
+Move it exactly as in a same-host take-over, and record the judgment in the event:
+
+```text
+Action: took over H-C-01 from C (cross-host: Codex → Claude Code; reason: cheap error audit decides whether C's model items are worth running) as H-A-12
+```
+
+The user can lower or raise the Priority floor, forbid cross-host take-overs, or approve specific items; an explicit user instruction always wins. The discovery that results records your host in `Host` as usual, so a session on the original host can still cross-check it.
 
 ## 5. Use `discoveries.md` as shared knowledge with cross-host verification
 
@@ -360,7 +378,7 @@ Some changes touch more than one file. Make all parts of the change before doing
 | Change | Do all of these together |
 | --- | --- |
 | Finish an item | discovery → handoff event → follow-up items → remove the item from `plan.md` |
-| Take over an item | move the block in `plan.md` → handoff event |
+| Take over an item (same host or cross-host) | move the block in `plan.md` → handoff event, with the reason for a cross-host take-over |
 | Add or create a slot | `## Agent:` plan section + `### Agent:` handoff section + `Active agent(s)` |
 | New best result | discovery whose `Implication` starts with `new current best:` → `Current best` in Shared state citing it |
 | Queue an item | add it to `plan.md`; any handoff line that names it comes after, never before |

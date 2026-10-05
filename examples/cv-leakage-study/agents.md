@@ -66,15 +66,25 @@ Look for work in this order before going idle:
 1. Re-read your own section (a same-host session may have taken items; the handoff log says so).
 2. Claim a `PENDING` cross-check from a different host.
 3. Take over an item from a same-host slot (below).
-4. Derive new hypotheses from discoveries.
-5. If nothing worthwhile is left, note it in your active handoff section, set `Current host: released`, and stop.
+4. Cross-host take-over by judgment: at most one promising item (below).
+5. Derive new hypotheses from discoveries.
+6. If nothing worthwhile is left, note it in your active handoff section, set `Current host: released`, and stop.
 
-**Taking over from a same-host slot.** A host is the platform, so this works across sessions and models of the same host. Items queued under a different host stay with that host.
+**Taking over from a same-host slot.** A host is the platform, so this works across sessions and models of the same host. Items queued under a different host normally stay with that host (see the exception below).
 
-- Eligible sources: a slot whose `Current host` equals yours, or a `released`/`unassigned` slot whose latest completed-log event came from your host. Never take the item in the owner's `Current thread`.
+- Eligible sources: a slot whose `Current host` equals yours, or a `released`/`unassigned` slot whose latest completed-log event came from your host (or that has no events at all — user-seeded items belong to no host). Never take the item in the owner's `Current thread`.
 - Pick by metadata only: highest `Priority` (ties: lower `Cost`, then higher `Information`) that you can run now.
 - Re-read `plan.md`, then move the block into your own section with your next ID and the old ID in the title: `### H-A-05 — <title> (from H-C-03)`. The old ID is retired.
 - Rescore it, and log `Action: took over H-C-03 from C (same host) as H-A-05` with `Discovery updates: none — take-over, no experiment` in the handoff.
+
+**Cross-host take-over by judgment.** As an exception, you may take over **one** item queued by a different host when all of these hold:
+
+- your own queue, eligible cross-checks, and same-host items are exhausted;
+- the source slot is `released` or `unassigned` — never an active session on another host, and never the owner's `Current thread`;
+- the item has `Priority` ≥ 15 and clearly beats the best new hypothesis you could write now, for a reason you can state in one line;
+- you take only one; after finishing it, start this list again from step 1.
+
+Move it like a same-host take-over and log the judgment: `Action: took over H-C-01 from C (cross-host: Codex → Claude Code; reason: <one line>) as H-A-12`. An explicit user instruction (a different floor, a ban, or approval of specific items) always wins.
 
 ## Discovery cross-check
 
