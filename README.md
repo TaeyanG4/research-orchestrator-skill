@@ -1,67 +1,82 @@
 <p align="center">
-  <img src="assets/readme/hero.png" alt="Research Orchestrator" width="100%">
+  <img src="assets/readme/hero.webp" alt="Research Orchestrator" width="100%">
 </p>
 
 # Research Orchestrator
 
 A lightweight, hypothesis-driven research workflow for one or many AI agent sessions.
 
-It keeps the system deliberately small: **four shared Markdown files**, a scored hypothesis queue, independent peer review, adaptive workers, and CPU/GPU/Other resource routing.
+It deliberately uses only **four shared Markdown files** while adding a scored hypothesis queue, independent per-agent review, adaptive workers, and CPU/GPU/Other resource routing.
 
-## What it solves
+## Why use it?
 
-- Keep long-running research resumable across sessions.
-- Let multiple agents explore independently without sharing unfinished reasoning.
-- Turn completed experiments into shared discoveries instead of an ever-growing plan.
-- Re-check another agent's conclusions instead of inheriting them automatically.
-- Preserve promising but incomplete ideas with `HOLD` instead of forcing accept/reject decisions.
-- Convert discoveries back into new hypotheses with explicit evidence and improvements.
-- Scale from two workers to the practical full load of the current machine and available remote compute.
+- Resume long-running research across fresh sessions.
+- Let multiple agents explore independently without sharing unfinished plans.
+- Keep `plan.md` small by removing completed work.
+- Turn experiment results into reusable shared discoveries.
+- Re-check another agent's conclusion instead of inheriting it automatically.
+- Preserve promising but incomplete findings with `HOLD`.
+- Re-open discoveries as stronger hypotheses with explicit evidence and improvements.
+- Scale from two workers to the machine's practical full load.
 
-<p align="center">
-  <img src="assets/readme/core-workflow.png" alt="Research Orchestrator core workflow" width="100%">
-</p>
+## Core workflow
+
+```mermaid
+flowchart LR
+    D[DISCOVERIES<br/>shared evidence<br/>CLOSED / HOLD / CHALLENGED]
+    H[New hypotheses<br/>Sources + Evidence + Improvement]
+    P[PLAN<br/>scored live queue]
+    W[Adaptive workers<br/>CPU / GPU / Other]
+    E[Experiments]
+    O[HANDOFF<br/>history + artifacts + blockers + next state]
+
+    D --> H --> P --> W --> E --> D
+    P --> O
+    E --> O
+    D --> O
+```
+
+A discovery can generate **zero, one, or many** new hypotheses. One hypothesis can also combine evidence from multiple discoveries.
 
 ## The four files
 
-<p align="center">
-  <img src="assets/readme/document-roles.png" alt="Research Orchestrator document roles" width="100%">
-</p>
+```mermaid
+flowchart TD
+    A[AGENTS.md<br/>rules, scoring, review, routing]
+    P[PLAN.md<br/>active unfinished work only]
+    D[DISCOVERIES.md<br/>shared reusable findings]
+    H[HANDOFF.md<br/>operational ledger]
+
+    A --> P
+    P -->|completed result| D
+    P -->|execution history| H
+    D -->|new evidence / review| P
+```
 
 | File | Purpose |
 | --- | --- |
 | `agents.md` | Stable rules for reading, editing, scoring, review, and resource routing. |
-| `plan.md` | **Only active unfinished work.** Each agent owns a section and works from a scored queue. |
+| `plan.md` | **Only active unfinished work.** Each agent owns its own section and works from a scored queue. |
 | `discoveries.md` | Shared reusable findings. Every agent reads it and records its own `CLOSED`, `HOLD`, or `CHALLENGED` verdict. |
-| `handoff.md` | Operational history, active resumable state, artifacts, metrics, blockers, and next actions. |
+| `handoff.md` | Operational history, resumable state, artifacts, metrics, blockers, and next actions. |
 
-Completed plan items **leave `plan.md`**. Their execution history goes to `handoff.md`, reusable knowledge goes to `discoveries.md`, and any follow-up hypotheses return to `plan.md` with fresh scores.
-
-## Quick start
-
-Initialize the four project files:
-
-```bash
-python skills/research-orchestrator-skill/scripts/init_research_orchestrator.py . -n "My Project"
-```
-
-Start with multiple independent agents:
-
-```bash
-python skills/research-orchestrator-skill/scripts/init_research_orchestrator.py . -n "My Project" --agents A,B
-```
-
-The initializer creates missing files only. Existing files are never overwritten.
+Completed items **leave `plan.md`**. Their execution history goes to `handoff.md`, reusable knowledge goes to `discoveries.md`, and follow-up hypotheses return to `plan.md` with fresh scores.
 
 ---
 
 # Install
 
-This repository is packaged so the same Skill can be used from **Claude Code, Codex, and Google Antigravity**.
+The repository packages the same skill for **Claude Code, Codex, and Google Antigravity**.
+
+Repository:
+
+```text
+https://github.com/TaeyanG4/research-orchestrator-skill
+```
 
 ## Claude Code
 
-### Recommended: install as a plugin from GitHub
+### Plugin marketplace install
 
 Inside Claude Code:
 
@@ -72,19 +87,23 @@ Inside Claude Code:
 
 Start a new Claude Code session after the first install.
 
-### Project-only Skill install
+### Project-only skill install
 
-Copy the Skill directory to:
+Clone or copy:
+
+```text
+skills/research-orchestrator-skill/
+```
+
+into:
 
 ```text
 <project>/.claude/skills/research-orchestrator-skill/
 ```
 
-Claude Code discovers a `SKILL.md` in that directory automatically.
-
 ## Codex
 
-### Recommended: add the GitHub marketplace
+### Plugin marketplace install
 
 From a terminal:
 
@@ -93,15 +112,15 @@ codex plugin marketplace add TaeyanG4/research-orchestrator-skill
 codex
 ```
 
-Then open:
+Inside Codex:
 
 ```text
 /plugins
 ```
 
-Choose the **Research Orchestrator** marketplace/source and install `research-orchestrator`.
+Select the **Research Orchestrator** marketplace and install `research-orchestrator`. Start a new chat before first use.
 
-### Direct Skill install
+### Direct skill install
 
 Repo-scoped:
 
@@ -115,9 +134,17 @@ User-scoped:
 ~/.codex/skills/research-orchestrator-skill/
 ```
 
-Copy the repository's `skills/research-orchestrator-skill/` directory to one of those locations.
+Copy the repository's `skills/research-orchestrator-skill/` directory into one of those locations.
 
 ## Google Antigravity
+
+Clone the repository:
+
+```bash
+git clone https://github.com/TaeyanG4/research-orchestrator-skill.git
+```
+
+Then copy `skills/research-orchestrator-skill/` to one of these locations.
 
 Project/workspace scope:
 
@@ -125,59 +152,61 @@ Project/workspace scope:
 <project>/.agents/skills/research-orchestrator-skill/
 ```
 
-Global scope:
+Global Antigravity scope:
 
 ```text
 ~/.gemini/config/skills/research-orchestrator-skill/
 ```
 
-Copy `skills/research-orchestrator-skill/` into the chosen location. Antigravity discovers the `SKILL.md` automatically.
-
-For older Antigravity CLI builds that still use the legacy CLI-specific global directory, use:
+Antigravity CLI legacy/global location:
 
 ```text
 ~/.gemini/antigravity-cli/skills/research-orchestrator-skill/
 ```
 
+Use `/skills` in Antigravity CLI to confirm discovery.
+
 ---
 
-# Core workflow
+# Quick start
 
-## 1. Discoveries create hypotheses
+Initialize the four project files:
 
-Every agent reads all of `discoveries.md`. A discovery can create **zero, one, or many** new hypotheses, and one new hypothesis can combine several discoveries.
-
-A discovery's review verdict is per agent:
-
-```markdown
-## D-014 — Random CV may leak groups
-- Source: Agent A
-- Finding: duplicated groups cross random folds
-- Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027
-- Implication: current validation may be optimistic
-- Reviews:
-  - Agent A: CLOSED — source experiment consistently reproduces the effect
-  - Agent B: HOLD — likely useful, but exact duplicates must be separated first
-  - Agent C: CHALLENGED — effect disappears after a deduplication control
+```bash
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 ```
 
-Meaning:
+Start with multiple independent agents:
 
-- `CLOSED`: this agent currently accepts the finding.
-- `HOLD`: plausible and worth preserving, but more evidence or a specific improvement is needed.
-- `CHALLENGED`: this agent found a material contradiction, flaw, or missing assumption.
-- no entry: the agent has not reviewed it.
+```bash
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents A,B
+```
 
-One agent's `CLOSED` never becomes another agent's verdict automatically.
+The initializer creates missing files only. Existing project files are never overwritten.
 
-## 2. New work enters the scored PLAN queue
+## Reading rule
 
-Use one consistent hypothesis format:
+Each agent reads:
+
+```text
+agents.md
+→ all discoveries.md
+→ shared handoff log + its own active handoff
+→ only its own detailed PLAN section
+```
+
+Agents do **not** read another active agent's detailed PLAN just to coordinate work.
+
+---
+
+# Standard PLAN format
+
+Keep only active unfinished items.
 
 ```markdown
 ### H-B07 — Separate duplicate leakage from group leakage
 - Sources: D-014, D-021
-- Hypothesis: exact duplicates explain most of the apparent group leakage
+- Hypothesis: exact duplicates explain most apparent group leakage
 - Evidence: D-014 weakens after deduplication; D-021 identifies repeated rows
 - Improvement: isolate exact duplicates before constructing candidate groups
 - Impact: 3
@@ -193,62 +222,54 @@ Use one consistent hypothesis format:
 - Next test: compare random CV and GroupKFold after exact-duplicate removal
 ```
 
-When a discovery is brought back into the plan, `Sources`, `Evidence`, and `Improvement` make the reason explicit. Do not simply rerun the same idea under a new task ID.
-
 ### Priority formula
 
-Score each factor from 0 to 3:
+Score every factor from 0 to 3.
 
 ```text
 Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost)
 ```
 
-Run the highest score first unless blocked or explicitly overridden. Break ties by lower cost, then higher information value.
+Run the highest score first unless blocked or explicitly overridden. Break ties by lower `Cost`, then higher `Information`.
 
-## 3. Adaptive workers use available compute
+When a discovery returns to PLAN, these fields are mandatory:
 
-Start with **two workers** when parallelism is useful. Add more only while independent high-value work and compute headroom remain. There is no fixed worker ceiling; stop at the machine's practical full load before contention lowers throughput.
+- `Sources` — which discoveries motivated it.
+- `Evidence` — why it deserves another test.
+- `Improvement` — what is materially different or stronger than the prior attempt.
 
-Each plan item declares:
+Do not simply rerun an old idea under a new task ID.
 
-```text
-Resource: CPU | GPU | EITHER
-Parallel: YES | NO
-Other: NONE | <external executor>
+---
+
+# Standard DISCOVERIES format
+
+```markdown
+## D-014 — Random CV may leak groups
+- Source: Agent A
+- Finding: duplicated groups cross random folds
+- Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027
+- Implication: current validation may be optimistic
+- Reviews:
+  - Agent A: CLOSED — source experiment consistently reproduces the effect
+  - Agent B: HOLD — plausible, but exact duplicates must be separated first
+  - Agent C: CHALLENGED — effect disappears after a deduplication control
 ```
 
-Example:
+Per-agent verdicts:
 
-```text
-Other: Kaggle
-```
+- `CLOSED` — this agent currently accepts the finding after meaningful review.
+- `HOLD` — promising or plausible, but more evidence or a specific improvement is needed.
+- `CHALLENGED` — this agent found a material contradiction, flaw, or missing assumption.
+- no entry — this agent has not reviewed it.
 
-Routing rule:
+There is **no global CLOSED**. Agent A's `CLOSED` does not automatically become Agent B's conclusion.
 
-1. Idle GPU -> highest-priority compatible GPU/EITHER work.
-2. Idle CPU -> highest-priority compatible CPU/EITHER work.
-3. One busy, one idle -> fill the idle local resource with independent worthwhile work.
-4. Both saturated -> eligible work may overflow to `Other` when the executor is available, suitable, and authorized.
-5. Never run low-value work merely to keep hardware busy.
+A `HOLD` review should state what evidence, condition, or improvement would make the discovery worth revisiting.
 
-## 4. Completed work leaves PLAN
+---
 
-On completion:
-
-```text
-PLAN item
-   |
-   +--> HANDOFF       execution/result/history
-   +--> DISCOVERIES   reusable knowledge/review
-   +--> PLAN          new follow-up hypotheses, if any
-   `--> removed       old completed item disappears from PLAN
-```
-
-`plan.md` should answer only one question: **what should this agent work on next?**
-
-## 5. HANDOFF stays resumable
-
-Use one event format:
+# Standard HANDOFF format
 
 ```markdown
 ### 2026-10-05 21:10 — Agent B — H-B07
@@ -264,7 +285,38 @@ Use one event format:
 - Next resumable action: test near-duplicate clusters
 ```
 
-When `handoff.md` becomes hard to scan, archive older completed entries under `docs/` and keep the current state plus recent history in the root file.
+When `handoff.md` becomes hard to scan, archive older completed entries under `docs/` and leave a short summary/link in the root handoff.
+
+---
+
+# Adaptive workers and compute routing
+
+Start with **two workers** when parallelism is useful. Add workers only while independent high-value work and actual resource headroom remain.
+
+Each PLAN item declares:
+
+```text
+Resource: CPU | GPU | EITHER
+Parallel: YES | NO
+Other: NONE | <external executor>
+```
+
+Example:
+
+```text
+Other: Kaggle
+```
+
+Routing order:
+
+1. Idle GPU → highest-priority compatible GPU/EITHER item.
+2. Idle CPU → highest-priority compatible CPU/EITHER item.
+3. One local resource busy, the other idle → fill the idle one with worthwhile independent work.
+4. Both local resources saturated → eligible work may overflow to `Other` when available and authorized.
+5. Never run low-value work merely to keep hardware busy.
+6. Scale down when RAM pressure, I/O contention, duplicated work, or lower throughput appears.
+
+Worker count is not a goal. **Useful throughput is the goal.**
 
 ---
 
@@ -275,17 +327,13 @@ research-orchestrator-skill/
 ├── README.md
 ├── LICENSE
 ├── plugin.json
+├── .agents/plugins/marketplace.json
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── .codex-plugin/
-│   └── plugin.json
-├── .agents/plugins/
-│   └── marketplace.json
+├── .codex-plugin/plugin.json
 ├── assets/readme/
-│   ├── hero.png
-│   ├── core-workflow.png
-│   └── document-roles.png
+│   └── hero.webp
 └── skills/
     └── research-orchestrator-skill/
         ├── SKILL.md
@@ -301,34 +349,35 @@ research-orchestrator-skill/
 
 # Design principles
 
-- **Minimal shared state:** four coordination documents, not a hierarchy of worker folders.
-- **Independent exploration:** unfinished agent plans stay separated.
-- **Shared evidence:** completed findings flow through discoveries.
-- **Per-agent judgment:** `CLOSED`, `HOLD`, and `CHALLENGED` are independent review verdicts.
-- **Live queue only:** completed work does not accumulate in plan.
-- **Evidence-backed retries:** a discovery returning to plan must state its evidence and improvement.
-- **Adaptive concurrency:** worker count follows useful work and actual resource headroom.
-- **Serialized shared edits:** re-read before patching shared files to reduce concurrent overwrite risk.
+- **Minimal shared state** — four coordination documents, no per-agent folder hierarchy.
+- **Independent exploration** — unfinished agent plans remain separated.
+- **Shared evidence** — completed findings flow through discoveries.
+- **Per-agent judgment** — `CLOSED`, `HOLD`, and `CHALLENGED` are independent verdicts.
+- **Live queue only** — completed work does not accumulate in PLAN.
+- **Evidence-backed retries** — returning discoveries state evidence and improvements.
+- **Adaptive concurrency** — worker count follows useful work and compute headroom.
+- **Safe shared edits** — re-read before patching shared files.
 
 # Validation
 
-The release is checked for:
+A release should pass all of these checks:
 
-- valid Skill frontmatter;
-- consistent PLAN / DISCOVERIES / HANDOFF field names;
-- matching review verdicts (`CLOSED`, `HOLD`, `CHALLENGED`);
-- matching resource metadata (`CPU`, `GPU`, `EITHER`, `Other`);
-- no stale legacy skill-name references;
-- initializer behavior that preserves existing project files;
-- valid JSON plugin/marketplace manifests.
+- Skill frontmatter contains only `name` and `description`.
+- PLAN fields match the template exactly.
+- DISCOVERIES uses only `CLOSED`, `HOLD`, `CHALLENGED`, or no review.
+- HANDOFF uses the documented event fields.
+- Resource metadata uses `CPU`, `GPU`, `EITHER`, and `Other`.
+- No legacy `context-continuity` naming remains.
+- Initializer never overwrites existing project files.
+- Plugin and marketplace manifests parse as valid JSON.
 
 # License
 
 MIT.
 
-## References for host-specific installation
+## Host documentation
 
-- Claude Code Agent Skills / plugin marketplace: https://github.com/anthropics/skills
+- Claude Code plugin installation: https://docs.anthropic.com/
+- OpenAI plugin packaging and marketplaces: https://developers.openai.com/plugins/build/plugins
 - Codex skills: https://developers.openai.com/blog/eval-skills
-- Codex plugin packaging: https://developers.openai.com/plugins/build/plugins
 - Google Antigravity Skills: https://codelabs.developers.google.com/getting-started-with-antigravity-skills
