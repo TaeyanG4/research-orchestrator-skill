@@ -1,10 +1,10 @@
 # CV Leakage Study — Plan
 
-Keep only active unfinished work here. Completed work moves to `handoff.md` and to `discoveries.md` (always for a failed hypothesis, otherwise when reusable).
+Keep only active unfinished plan items here — nothing else. Project-wide values such as the current best live in `handoff.md` Shared state. Every completed item leaves a discovery (positive, negative, or inconclusive) and a handoff event, then is removed from this file.
 
 Each agent edits only its own `## Agent: <name>` section. Plan item IDs use `H-<Agent>-<NN>`, for example `H-A-01` or `H-B-07`.
 
-Before adding an item, confirm it is not already settled in `discoveries.md` (including negative results), already attempted in the `handoff.md` log, or already queued under another agent (check headings and `Hypothesis` lines only). A repeat needs a real `Improvement` and a citation of the earlier ID.
+Before adding an item, confirm it is not already in `discoveries.md` (every completed experiment is there, including negative and inconclusive ones) or already queued under another agent (check headings and `Hypothesis` lines only). A repeat needs a real `Improvement` and a citation of the earlier ID.
 
 Priority formula:
 
@@ -40,9 +40,9 @@ Example external executor: `Other: Kaggle`.
 ## Agent: A
 
 ### H-A-04 — Fold-aware target encoding (from H-C-02)
-- Sources: D-A-002, D-A-001
+- Sources: D-C-001, D-A-002, D-A-001
 - Hypothesis: target encoding fit inside each GroupKFold training fold improves CV without leakage
-- Evidence: D-A-002 shows global target encoding leaks (GroupKFold CV 0.9027 → 0.8991); D-A-001 (not yet verified, REVIEWING Codex (B)) says deduplicated data is the right base
+- Evidence: D-C-001 (PENDING) finds every encoder is fit before the fold split; D-A-002 shows global target encoding drops GroupKFold CV from 0.9027 to 0.8991; D-A-001 (REVIEWING Codex (B)) sets the deduplicated baseline at 0.9030
 - Improvement: encoding is fit only on training folds of deduplicated data, unlike the global encoding tested in H-A-03
 - Impact: 3
 - Information: 2

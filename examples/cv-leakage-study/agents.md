@@ -22,29 +22,41 @@ A, B, C, ... Z, AA, AB, ... ZZ
 2. all of `discoveries.md`
 3. `handoff.md`: shared completed/review log plus only your own active handoff section
 4. `plan.md`: only your own detailed `## Agent: <name>` section
+5. run the consistency check (below) before starting work
 
 A dispatcher, or a session choosing a take-over item, may inspect only task ID, owner, priority, cost, information, resource, parallel-safety, and `Other` executor metadata across plan sections.
 
 ## Core rules
 
-- Keep only unfinished active work in `plan.md`; execute highest priority first.
-- Before adding a plan item, check it is not a duplicate: search `discoveries.md` (including negative results), the completed log in `handoff.md` and `docs/`, and the other agents' plan item headings and `Hypothesis` lines. Skip settled (`VERIFIED`) or `CHALLENGED` claims and anything already queued; otherwise cite the prior ID and give a real `Improvement`.
-- When a plan item finishes, write its operational result to `handoff.md`, record reusable knowledge in `discoveries.md` — always including a negative-result discovery when the hypothesis failed — plan its follow-ups (see "Plan follow-ups" below), then remove the completed plan item.
+- Keep only unfinished plan items in `plan.md` — nothing else; execute highest priority first. Project-wide values such as the current best live only in `handoff.md` Shared state and cite the discovery that set them.
+- Before adding a plan item, check it is not a duplicate: search `discoveries.md` (every completed experiment is there, including negative and inconclusive ones) and the other agents' plan item headings and `Hypothesis` lines. Skip settled (`VERIFIED`) or `CHALLENGED` claims and anything already queued; otherwise cite the prior ID and give a real `Improvement`.
+- When a plan item finishes, in one step: create or update its discovery (always — positive, negative, or inconclusive), append a handoff event that points to it, plan its follow-ups (see "Plan follow-ups" below), and remove the completed plan item.
 - Read all discoveries, but do not read another active agent's detailed plan or active handoff unless explicitly asked to review it. The only cross-section peeks allowed are dispatcher metadata, the duplicate check above (headings and `Hypothesis` lines only), the `Current host` and `Current thread` lines when choosing a slot or a take-over source, and the one item you take over.
 - Discoveries are cross-checked once by a different host, not by every agent (see "Discovery cross-check" below).
 - A discovery may create zero, one, or many new hypotheses; one hypothesis may combine many discoveries.
 - When bringing a discovery back into `plan.md`, include `Sources`, `Evidence`, and `Improvement` so the new attempt is justified and materially different.
 - Re-score affected plan items when evidence changes.
 - Re-read shared files immediately before editing and patch only the relevant section or append a new entry.
+- Make linked changes together: a new slot gets its plan section, handoff section, and `Active agent(s)` entry at once; a take-over moves the item and logs it at once; a new best result updates `Current best` in the same step as its discovery.
 - Do not create per-agent continuity folders or a separate process file.
 - Create `docs/` only to archive old handoff history when needed.
+
+## What goes where
+
+- `discoveries.md` — **what is known**: claims, numbers, interpretation, verification. The only index of what has been tried.
+- `handoff.md` — **what happened and where to resume**: who, when, which host, artifact paths, and each slot's resume point. Events point to discoveries by ID instead of repeating them.
+- `plan.md` — **what to do next**: plan items only.
+
+## Consistency check
+
+Run `python <skill-root>/scripts/check_project.py .` at session start, after a take-over, and before closing. Fix problems in your own sections before starting new work; if a report is wrong, note it under `Open consistency issues` as `(disputed — <why>)` and continue. For a problem in another agent's section, add it under `Open consistency issues` in `handoff.md` Shared state instead of editing their section; the owner or the user resolves it.
 
 ## Plan follow-ups (zero or more)
 
 Every time you write or update a discovery — a new finding, a negative result, or a cross-check verdict — decide what it changes before picking your next item:
 
 1. Add each next test that could change a decision as a plan item in your own section, with `Sources`, `Evidence`, and `Improvement`, after the duplicate check.
-2. Rescore your existing items it affects; remove the ones it made pointless.
+2. Rescore your existing items it affects; remove the ones it made pointless, naming each in the handoff event's `Action` as `removed H-A-05 — <reason>`.
 3. Zero follow-ups is valid but must be deliberate: write `New plan items: none — <reason>` in the handoff event. A bare `none` is not allowed.
 
 ## When your own queue runs out
@@ -62,7 +74,7 @@ Look for work in this order before going idle:
 - Eligible sources: a slot whose `Current host` equals yours, or a `released`/`unassigned` slot whose latest completed-log event came from your host. Never take the item in the owner's `Current thread`.
 - Pick by metadata only: highest `Priority` (ties: lower `Cost`, then higher `Information`) that you can run now.
 - Re-read `plan.md`, then move the block into your own section with your next ID and the old ID in the title: `### H-A-05 — <title> (from H-C-03)`. The old ID is retired.
-- Rescore it, and log `Action: took over H-C-03 from C (same host) as H-A-05` in the handoff.
+- Rescore it, and log `Action: took over H-C-03 from C (same host) as H-A-05` with `Discovery updates: none — take-over, no experiment` in the handoff.
 
 ## Discovery cross-check
 
@@ -133,4 +145,4 @@ When parallel work is useful, start with two agents (`A`, `B`) and add more only
 
 ## Close a session
 
-Finish completed plan-item migrations, rescore your remaining items, finish or release any cross-check you claimed, update your active handoff section with the exact next resumable action, and set `Current host: released`.
+Finish completed plan-item migrations, rescore your remaining items, finish or release any cross-check you claimed, update `Resumable state` and `Next action` in your active handoff section, run the consistency check, and set `Current host: released`.

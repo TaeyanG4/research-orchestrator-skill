@@ -19,7 +19,7 @@
 - 在新的会话中继续长期研究。
 - 让多个代理独立探索，而不共享未完成的计划。
 - 移除已完成的工作，保持 `plan.md` 精简。
-- 同一个想法绝不排队两次：失败的假设会作为负面结果记录，每个新条目都会与 discoveries、handoff 日志以及其他代理的队列进行比对。
+- 同一个想法绝不排队两次：每个完成的实验无论结果如何（正面、负面或无定论）都会留下一个发现，每个新条目都会与 discoveries 及其他代理的队列进行比对。
 - 将实验结果转化为可复用的共享发现。
 - 每个发现只由另一个主机检查一次——Codex 的发现由 Claude Code 验证，反之亦然——而不是让每个会话都重新审查。
 - 用 `HOLD` 保留有前景但尚不完整的发现。
@@ -65,10 +65,10 @@ flowchart TD
 | --- | --- |
 | `agents.md` | 关于读取、编辑、评分、审查和资源路由的稳定规则。 |
 | `plan.md` | **仅包含进行中的未完成工作。** 每个代理拥有自己的分区，并按评分队列工作。 |
-| `discoveries.md` | 可复用的共享发现。所有代理都会阅读；每个发现由另一个主机交叉检查一次。 |
-| `handoff.md` | 运行历史、可恢复状态、产物、指标、阻碍和下一步行动。 |
+| `discoveries.md` | **已知的内容**：结论、数字、解释和验证状态。每个完成的实验都会留下一条；每条由另一主机交叉检查一次。 |
+| `handoff.md` | **发生了什么、从哪里继续**：谁、何时、哪个主机、产物路径、当前最佳等项目级数值，以及每个槽位的恢复点。只用 ID 指向发现，不重复其内容。 |
 
-已完成的条目会**离开 `plan.md`**。执行历史进入 `handoff.md`，可复用的知识进入 `discoveries.md`，后续假设以新的评分回到 `plan.md`。
+已完成的条目会**离开 `plan.md`**。无论结果如何，每个条目都会留下一个发现和一条指向它的 handoff 事件，后续假设以新的评分回到 `plan.md`。
 
 ## 模板与完整示例
 
@@ -203,6 +203,8 @@ python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 
 `--agents` 也接受 `A,B,C` 这样的显式名称列表。初始化脚本会拒绝重复或非标准的名称，只创建缺失的文件，绝不覆盖已有的项目文件。
 
+之后在每次会话开始和结束前运行 `python <installed-skill>/scripts/check_project.py .`（见下文*一致性检查*）。
+
 ## 代理名称
 
 代理名称是一个**工作槽位**，而不是运行它的工具或模型。所有主机——Claude Code、Codex、Antigravity——都使用相同的名称：
@@ -306,10 +308,9 @@ Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost
 
 ### 添加条目前的重复检查
 
-1. 搜索 `discoveries.md`，包括负面结果——失败的假设总是以 `Finding: <claim> does not hold under <conditions>` 的形式记录在其中。对于 `VERIFIED` 的结论，除非有真正的 `Improvement`，否则跳过；对于 `CHALLENGED` 的结论，在问题解决前跳过。
-2. 在 `handoff.md` 的完成日志和 `docs/` 中查找之前的尝试，并加以引用。
-3. 浏览其他代理的计划分区，**只**阅读条目标题和 `Hypothesis` 行。如果已在队列中，就不要添加。
-4. 写入前重新读取 `plan.md`；如果在此期间出现了相同条目，保留先出现的那个。
+1. 搜索 `discoveries.md`——所有完成的实验都在其中，无论是正面、负面（`Finding: <claim> does not hold under <conditions>`）还是无定论。对于 `VERIFIED` 的结论，除非有真正的 `Improvement`，否则跳过；对于 `CHALLENGED` 的结论，在问题解决前跳过。
+2. 浏览其他代理的计划分区，**只**阅读条目标题和 `Hypothesis` 行。如果已在队列中，就不要添加。
+3. 写入前重新读取 `plan.md`；如果在此期间出现了相同条目，保留先出现的那个。
 
 ---
 
@@ -368,18 +369,39 @@ flowchart LR
 ### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
 - Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
-- Result: random/group CV gap shrank from 0.0135 to 0.0041
-- Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-B-014, D-A-003
+- Result: duplicates explain most of the gap; see D-A-003 and the review on D-B-014
+- Artifacts: experiments/e027_dedup_groups.py; outputs/e027.csv
+- Discovery updates: D-B-014 (review), D-A-003
 - Review verdict: D-B-014 HOLD
-- Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
 - New plan items: H-A-08, H-A-09
-- Next resumable action: test near-duplicate clusters
 ```
 
 当 `handoff.md` 变得难以浏览时，把较早的已完成条目归档到 `docs/` 下，并在根目录的 handoff 中留下简短摘要和链接。
+
+事件记录发生了什么，对知识只做**指向**，不重复内容。`Result` 是指向发现的一行，`Artifacts` 只列路径，也没有“下一步”行——每个槽位活动分区中的 `Next action` 是唯一的下一步。
+
+### 信息放在哪里
+
+| 信息 | 存放位置 | 其他地方 |
+| --- | --- | --- |
+| 结论、数字、解释 | `discoveries.md` | handoff 的 `Result` 指向发现 ID |
+| 验证状态与理由 | `discoveries.md`（`Cross-check`、`Reviews`） | handoff 的 `Review verdict` 只写 ID 和结论 |
+| 谁、何时、哪个主机、做了什么 | `handoff.md` 事件 | — |
+| 生成或修改的文件 | `handoff.md` 的 `Artifacts` | 发现的 `Evidence` 只引用复现所需的文件 |
+| 当前最佳等项目级数值 | `handoff.md` 的 Shared state（引用发现） | 绝不写在 `plan.md` |
+| 下一步要测试什么 | `plan.md` 的 `Next test` | handoff 只写计划条目 ID |
+
+### 一致性检查
+
+在会话开始、接手之后以及结束之前运行内置检查脚本：
+
+```bash
+python <installed-skill>/scripts/check_project.py .
+```
+
+它会报告文件之间的不一致：缺少计划或 handoff 分区的活动代理、handoff 说已排队但 `plan.md` 中不存在的条目、已完成或已移交却仍留在队列中的条目、写进 `plan.md` 的“冠军”之类的项目级数值、过时或未引用来源的 `Current best`，以及与审查记录不符的交叉检查状态。每个问题都标注了负责的代理；代理修复自己的问题，并把其他代理的问题记在 `Open consistency issues` 下。
 
 ---
 
@@ -444,7 +466,9 @@ research-orchestrator-skill/
     └── research-orchestrator-skill/
         ├── SKILL.md
         ├── agents/openai.yaml
-        ├── scripts/init_research_orchestrator.py
+        ├── scripts/
+        │   ├── init_research_orchestrator.py
+        │   └── check_project.py
         ├── templates/
         │   ├── AGENTS.md.template
         │   ├── PLAN.md.template
@@ -481,7 +505,8 @@ python scripts/validate_release.py
 - README（含译本）、SKILL.md、模板和完整示例中的 PLAN、DISCOVERIES、HANDOFF 使用准确的字段顺序。
 - 发现记录了 `Host` 和有效的 `Cross-check` 状态；审查使用 `<Host> (<Agent>)` 格式及 `CLOSED`、`HOLD` 或 `CHALLENGED`，且不来自作者所在的主机（标注 `same host —` 的除外）。
 - Resource 值在 PLAN 中为 `CPU`/`GPU`/`EITHER`，在 HANDOFF 中为 `CPU`/`GPU`/`Other`/`none`。
-- 实际的 handoff 事件会列出新计划条目或写明 `none — <reason>`；具体的 `Priority` 值与公式一致。
+- 实际的 handoff 事件会列出发现更新和新计划条目，或写明 `none — <reason>`；具体的 `Priority` 值与公式一致。
+- 完整示例和新初始化的项目都能通过 `check_project.py`。
 - 代理名称为 `A`-`Z` 或 `AA`-`ZZ`；ID 遵循 `H-<Agent>-NN` 和 `D-<Agent>-NNN`。
 - 所有 README 都有语言切换链接，相对链接均存在，并保持相同的图片和代码块结构。
 - 完整示例中的 `agents.md` 与初始化脚本当前生成的内容一致。

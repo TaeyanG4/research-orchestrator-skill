@@ -17,7 +17,7 @@ It deliberately uses only **four shared Markdown files** while adding a scored h
 - Resume long-running research across fresh sessions.
 - Let multiple agents explore independently without sharing unfinished plans.
 - Keep `plan.md` small by removing completed work.
-- Never queue the same idea twice: failed hypotheses are recorded as negative discoveries, and every new item is checked against discoveries, the handoff log, and other agents' queues.
+- Never queue the same idea twice: every completed experiment leaves a discovery — positive, negative, or inconclusive — and every new item is checked against discoveries and other agents' queues.
 - Turn experiment results into reusable shared discoveries.
 - Have a different host check each finding once — Codex's discovery is verified by Claude Code, and vice versa — instead of every session re-reviewing it.
 - Preserve promising but incomplete findings with `HOLD`.
@@ -63,10 +63,10 @@ flowchart TD
 | --- | --- |
 | `agents.md` | Stable rules for reading, editing, scoring, review, and resource routing. |
 | `plan.md` | **Only active unfinished work.** Each agent owns its own section and works from a scored queue. |
-| `discoveries.md` | Shared reusable findings. Every agent reads it; each finding is cross-checked once by a different host. |
-| `handoff.md` | Operational history, resumable state, artifacts, metrics, blockers, and next actions. |
+| `discoveries.md` | **What is known**: claims, numbers, interpretation, and verification. Every completed experiment leaves one entry; each is cross-checked once by a different host. |
+| `handoff.md` | **What happened and where to resume**: who, when, which host, artifact paths, project-wide values such as the current best, and each slot's resume point. Points to discoveries instead of repeating them. |
 
-Completed items **leave `plan.md`**. Their execution history goes to `handoff.md`, reusable knowledge goes to `discoveries.md`, and follow-up hypotheses return to `plan.md` with fresh scores.
+Completed items **leave `plan.md`**. Each one leaves a discovery (whatever the outcome) and a handoff event that points to it, and its follow-up hypotheses return to `plan.md` with fresh scores.
 
 ## Templates and a worked example
 
@@ -201,6 +201,8 @@ python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 
 `--agents` also accepts an explicit list such as `A,B,C`. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files.
 
+Then run `python <installed-skill>/scripts/check_project.py .` at every session start and before closing (see *Consistency check* below).
+
 ## Agent names
 
 An agent name is a **work slot**, not the tool or model running it. Every host — Claude Code, Codex, Antigravity — uses the same names:
@@ -304,10 +306,9 @@ Do not simply rerun an old idea under a new task ID.
 
 ### Duplicate check before adding an item
 
-1. Search `discoveries.md`, including negative results — a failed hypothesis is always recorded there as `Finding: <claim> does not hold under <conditions>`. Skip `VERIFIED` claims unless you have a real `Improvement`; skip `CHALLENGED` ones until resolved.
-2. Search the completed log in `handoff.md` and `docs/` for a prior attempt, and cite it.
-3. Scan the other agents' plan sections, reading **only** item headings and `Hypothesis` lines. If it is already queued, do not add it.
-4. Re-read `plan.md` right before writing; if the same item appeared meanwhile, keep the earlier one.
+1. Search `discoveries.md` — every completed experiment is there, positive, negative (`Finding: <claim> does not hold under <conditions>`), or inconclusive. Skip `VERIFIED` claims unless you have a real `Improvement`; skip `CHALLENGED` ones until resolved.
+2. Scan the other agents' plan sections, reading **only** item headings and `Hypothesis` lines. If it is already queued, do not add it.
+3. Re-read `plan.md` right before writing; if the same item appeared meanwhile, keep the earlier one.
 
 ---
 
@@ -366,18 +367,39 @@ Rules:
 ### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
 - Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
-- Result: random/group CV gap shrank from 0.0135 to 0.0041
-- Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-B-014, D-A-003
+- Result: duplicates explain most of the gap; see D-A-003 and the review on D-B-014
+- Artifacts: experiments/e027_dedup_groups.py; outputs/e027.csv
+- Discovery updates: D-B-014 (review), D-A-003
 - Review verdict: D-B-014 HOLD
-- Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
 - New plan items: H-A-08, H-A-09
-- Next resumable action: test near-duplicate clusters
 ```
 
 When `handoff.md` becomes hard to scan, archive older completed entries under `docs/` and leave a short summary/link in the root handoff.
+
+An event records what happened and **points** to knowledge; it never restates it. `Result` is one line that names the discovery, `Artifacts` lists paths only, and there is no next-step line — each slot's `Next action` in its active section is the only one.
+
+### What goes where
+
+| Information | Home | Elsewhere |
+| --- | --- | --- |
+| Claim, numbers, interpretation | `discoveries.md` | handoff `Result` names the discovery ID |
+| Verification state and reasons | `discoveries.md` (`Cross-check`, `Reviews`) | handoff `Review verdict` names the ID and verdict only |
+| Who, when, which host, what was done | `handoff.md` event | — |
+| Files produced or changed | `handoff.md` `Artifacts` | discovery `Evidence` cites what reproduces the claim |
+| Current best and other project-wide values | `handoff.md` Shared state, citing a discovery | never in `plan.md` |
+| What to test next | `plan.md` `Next test` | handoff names the plan item ID |
+
+### Consistency check
+
+Run the bundled checker at session start, after a take-over, and before closing:
+
+```bash
+python <installed-skill>/scripts/check_project.py .
+```
+
+It reports mismatches between the files: an active agent without its plan or handoff section, a plan item that handoff names as queued but that is missing from `plan.md`, a finished or retired item still in the queue, champion-style values written into `plan.md`, a stale or uncited `Current best`, and cross-check states that do not match their reviews. Each problem is tagged with the agent that owns it; agents fix their own and list others under `Open consistency issues`.
 
 ---
 
@@ -442,7 +464,9 @@ research-orchestrator-skill/
     └── research-orchestrator-skill/
         ├── SKILL.md
         ├── agents/openai.yaml
-        ├── scripts/init_research_orchestrator.py
+        ├── scripts/
+        │   ├── init_research_orchestrator.py
+        │   └── check_project.py
         ├── templates/
         │   ├── AGENTS.md.template
         │   ├── PLAN.md.template
@@ -479,7 +503,8 @@ A release should pass all of these checks:
 - PLAN, DISCOVERIES, and HANDOFF examples in every README, SKILL.md, the templates, and the worked example use the exact field order.
 - Discoveries record their `Host` and a valid `Cross-check` state; reviews use `<Host> (<Agent>)` with `CLOSED`, `HOLD`, or `CHALLENGED`, and never come from the source host (unless marked `same host —`).
 - Resource values are `CPU`/`GPU`/`EITHER` in PLAN and `CPU`/`GPU`/`Other`/`none` in HANDOFF.
-- Real handoff events list their new plan items or say `none — <reason>`; concrete `Priority` values match the formula.
+- Real handoff events list their discovery updates and new plan items or say `none — <reason>`; concrete `Priority` values match the formula.
+- The worked example and a freshly initialized project pass `check_project.py`.
 - Agent names are `A`-`Z` or `AA`-`ZZ`; IDs follow `H-<Agent>-NN` and `D-<Agent>-NNN`.
 - Every README has the language switcher, its relative links resolve, and translations keep the same images and code-block structure.
 - The worked example's `agents.md` matches what the initializer generates today.

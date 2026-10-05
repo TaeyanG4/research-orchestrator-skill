@@ -37,9 +37,8 @@ PLAN_FIELDS = [
 ]
 DISCOVERY_FIELDS = ["Source", "Host", "Cross-check", "Finding", "Evidence", "Implication", "Reviews"]
 HANDOFF_FIELDS = [
-    "Host", "Action", "Result", "Evidence", "Discovery updates",
-    "Review verdict", "Files/metrics", "Resource",
-    "Other executor", "New plan items", "Next resumable action",
+    "Host", "Action", "Result", "Artifacts", "Discovery updates",
+    "Review verdict", "Resource", "Other executor", "New plan items",
 ]
 
 READMES = {
@@ -181,6 +180,9 @@ def check_doc(path: Path, errors: list[str]) -> None:
             new_items = field_value(fields, "New plan items") or ""
             if not (NEW_ITEMS_IDS.match(new_items) or new_items.startswith("none — ")):
                 errors.append(f"{where}: New plan items '{new_items}' must list H- IDs or read 'none — <reason>'")
+            updates = field_value(fields, "Discovery updates") or ""
+            if not (updates.startswith("D-") or updates.startswith("none — ")):
+                errors.append(f"{where}: Discovery updates '{updates}' must list D- IDs or read 'none — <reason>'")
 
     for line in lines:
         section = SECTION_HEAD.match(line)
@@ -295,16 +297,28 @@ def check_readmes(errors: list[str]) -> None:
                     errors.append(f"{name}: invalid SVG {target}: {exc}")
 
 
+def run_checker(target: Path) -> subprocess.CompletedProcess[str]:
+    checker = SKILL / "scripts" / "check_project.py"
+    return subprocess.run([sys.executable, str(checker), str(target)], text=True,
+                          capture_output=True, encoding="utf-8", errors="replace")
+
+
 def check_example(errors: list[str]) -> None:
-    """The worked example's agents.md must equal what the initializer generates today."""
+    """The worked example must match the current template and pass the consistency checker."""
     with tempfile.TemporaryDirectory() as tmp:
         result = run_init(Path(tmp), *EXAMPLE_INIT_ARGS, name=None)
         if result.returncode != 0:
             errors.append(f"example: initializer failed: {result.stderr.strip()}")
             return
         expected = (Path(tmp) / "agents.md").read_text(encoding="utf-8")
+        fresh = run_checker(Path(tmp))
+        if fresh.returncode != 0:
+            errors.append("check_project.py fails on a freshly initialized project:\n" + fresh.stdout.strip())
     if (EXAMPLE / "agents.md").read_text(encoding="utf-8") != expected:
         errors.append("examples/cv-leakage-study/agents.md is out of date with AGENTS.md.template")
+    example = run_checker(EXAMPLE)
+    if example.returncode != 0:
+        errors.append("check_project.py fails on the worked example:\n" + example.stdout.strip())
 
 
 def run_init(target: Path, *args: str, name: str | None = "Validation Project") -> subprocess.CompletedProcess[str]:
@@ -387,8 +401,9 @@ def main() -> int:
     print("- all READMEs have the language switcher, working links, valid SVGs, and the same structure")
     print("- PLAN, DISCOVERIES, and HANDOFF blocks use the exact field order (docs, templates, example)")
     print("- concrete Priority values match the formula")
-    print("- real handoff events list new plan items or give 'none - <reason>'")
-    print("- the worked example's agents.md matches the current template")
+    print("- real handoff events list new plan items and discovery updates or give 'none - <reason>'")
+    print("- the worked example matches the current template and passes check_project.py")
+    print("- check_project.py passes on a freshly initialized project")
     print("- discoveries record Host and Cross-check; reviews come from a different host")
     print("- Resource values are CPU/GPU/EITHER (plan) and CPU/GPU/Other/none (handoff)")
     print("- agent names and IDs follow A-Z, AA-ZZ and H-<Agent>-NN / D-<Agent>-NNN")

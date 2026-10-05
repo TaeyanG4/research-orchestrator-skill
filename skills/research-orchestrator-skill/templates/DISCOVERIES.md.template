@@ -1,6 +1,6 @@
 # {{PROJECT_NAME}} — Discoveries
 
-Shared reusable findings live here. Every agent reads this file.
+This file holds **what is known**: every claim, its numbers and interpretation, and its verification state. Every agent reads all of it. `handoff.md` only points here by ID.
 
 Verification is per **host**, not per agent: a discovery made on one host (for example Codex) is cross-checked **once** by a different host (for example Claude Code). Sessions on the same host do not re-review each other.
 
@@ -38,7 +38,15 @@ Rules:
 - If only one host is available, a different slot on the same host may cross-check; begin its reason with `same host —`.
 - Use `VERIFIED` discoveries freely. A plan item built on a `PENDING`, `REVIEWING`, or `HOLD` discovery must say so in its `Evidence`. Do not build on `CHALLENGED` discoveries until resolved.
 
-Negative results are discoveries too. When a hypothesis fails or is disproved, record it here (`Finding: <claim> does not hold under <conditions>`) so no agent proposes it again. Before adding a plan item, every agent searches this file first.
+Every completed experiment or test creates or updates exactly one discovery here, whatever the outcome, so this file is the only index of what has been tried:
+
+- positive: `Finding: <claim>`
+- negative: `Finding: <claim> does not hold under <conditions>`
+- inconclusive: `Finding: inconclusive — <what was tried and why it did not settle>`
+
+A cross-check updates the reviewed discovery instead of creating a new one. Before adding a plan item, every agent searches this file first.
+
+When a result beats the project's current best, start its `Implication` with `new current best:` and update `Current best` in `handoff.md` Shared state in the same step, citing this discovery.
 
 A discovery may generate many plan hypotheses, and one hypothesis may combine many discoveries. When moving an idea back into `plan.md`, always include the source IDs plus the concrete `Evidence` and `Improvement` that justify the new attempt.
 

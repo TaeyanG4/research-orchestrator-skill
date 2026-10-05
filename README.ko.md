@@ -19,7 +19,7 @@
 - 오래 걸리는 연구를 새 세션에서 이어서 진행합니다.
 - 여러 에이전트가 미완성 계획을 공유하지 않고 독립적으로 탐색합니다.
 - 완료된 작업을 제거해 `plan.md`를 작게 유지합니다.
-- 같은 아이디어를 두 번 등록하지 않습니다. 실패한 가설은 부정 결과로 기록되고, 새 항목은 discoveries, handoff 로그, 다른 에이전트의 큐와 대조합니다.
+- 같은 아이디어를 두 번 등록하지 않습니다. 완료된 실험은 결과가 무엇이든(성공·실패·결론 없음) discovery로 남고, 새 항목은 모두 discoveries 및 다른 에이전트의 큐와 대조합니다.
 - 실험 결과를 재사용 가능한 공유 발견으로 바꿉니다.
 - 모든 세션이 다시 검토하는 대신, 다른 호스트가 각 발견을 한 번만 확인합니다. Codex의 발견은 Claude Code가, 그 반대도 마찬가지입니다.
 - 유망하지만 미완성인 발견은 `HOLD`로 보존합니다.
@@ -65,10 +65,10 @@ flowchart TD
 | --- | --- |
 | `agents.md` | 읽기, 편집, 점수, 리뷰, 리소스 라우팅에 관한 고정 규칙. |
 | `plan.md` | **진행 중인 미완료 작업만.** 각 에이전트가 자기 섹션을 가지고 점수 큐에 따라 작업합니다. |
-| `discoveries.md` | 재사용 가능한 공유 발견. 모든 에이전트가 읽고, 각 발견은 다른 호스트가 한 번 교차 확인합니다. |
-| `handoff.md` | 운영 이력, 재개 지점, 산출물, 지표, 블로커, 다음 행동. |
+| `discoveries.md` | **알고 있는 것**: 주장, 수치, 해석, 검증 상태. 완료된 실험마다 하나씩 남고, 각 발견은 다른 호스트가 한 번 교차 확인합니다. |
+| `handoff.md` | **무슨 일이 있었고 어디서 재개하는지**: 누가, 언제, 어느 호스트에서, 산출물 경로, 현재 최고 결과 같은 프로젝트 공통 값, 슬롯별 재개 지점. 발견 내용은 반복하지 않고 ID로 가리킵니다. |
 
-완료된 항목은 **`plan.md`에서 빠집니다**. 실행 이력은 `handoff.md`로, 재사용할 지식은 `discoveries.md`로 가고, 후속 가설은 점수를 새로 매겨 `plan.md`로 돌아갑니다.
+완료된 항목은 **`plan.md`에서 빠집니다**. 결과가 무엇이든 discovery 하나와 그것을 가리키는 handoff 이벤트를 남기고, 후속 가설은 점수를 새로 매겨 `plan.md`로 돌아갑니다.
 
 ## 템플릿과 실제 예시
 
@@ -203,6 +203,8 @@ python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 
 `--agents`에는 `A,B,C`처럼 이름 목록을 직접 넣을 수도 있습니다. 초기화 스크립트는 중복되거나 표준이 아닌 이름을 거부하고, 없는 파일만 만들며, 기존 프로젝트 파일은 절대 덮어쓰지 않습니다.
 
+이후 세션을 시작할 때와 끝낼 때마다 `python <installed-skill>/scripts/check_project.py .`을 실행하세요(아래 *일관성 점검* 참고).
+
 ## 에이전트 이름
 
 에이전트 이름은 실행하는 도구나 모델이 아니라 **작업 슬롯**입니다. Claude Code, Codex, Antigravity 등 모든 호스트가 같은 이름을 씁니다:
@@ -306,10 +308,9 @@ Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost
 
 ### 항목 추가 전 중복 확인
 
-1. 부정 결과를 포함해 `discoveries.md`를 검색합니다. 실패한 가설은 항상 `Finding: <claim> does not hold under <conditions>` 형식으로 기록되어 있습니다. `VERIFIED`인 주장은 실질적인 `Improvement`가 없으면 건너뛰고, `CHALLENGED`인 주장은 해결될 때까지 건너뜁니다.
-2. `handoff.md`의 완료 로그와 `docs/`에서 이전 시도를 찾아 인용합니다.
-3. 다른 에이전트의 plan 섹션을 훑되, 항목 제목과 `Hypothesis` 줄**만** 읽습니다. 이미 큐에 있으면 추가하지 않습니다.
-4. 쓰기 직전에 `plan.md`를 다시 읽습니다. 그사이 같은 항목이 생겼다면 먼저 생긴 것을 유지합니다.
+1. `discoveries.md`를 검색합니다. 완료된 실험은 성공, 실패(`Finding: <claim> does not hold under <conditions>`), 결론 없음 모두 여기에 있습니다. `VERIFIED`인 주장은 실질적인 `Improvement`가 없으면 건너뛰고, `CHALLENGED`인 주장은 해결될 때까지 건너뜁니다.
+2. 다른 에이전트의 plan 섹션을 훑되, 항목 제목과 `Hypothesis` 줄**만** 읽습니다. 이미 큐에 있으면 추가하지 않습니다.
+3. 쓰기 직전에 `plan.md`를 다시 읽습니다. 그사이 같은 항목이 생겼다면 먼저 생긴 것을 유지합니다.
 
 ---
 
@@ -368,18 +369,39 @@ flowchart LR
 ### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
 - Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
-- Result: random/group CV gap shrank from 0.0135 to 0.0041
-- Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-B-014, D-A-003
+- Result: duplicates explain most of the gap; see D-A-003 and the review on D-B-014
+- Artifacts: experiments/e027_dedup_groups.py; outputs/e027.csv
+- Discovery updates: D-B-014 (review), D-A-003
 - Review verdict: D-B-014 HOLD
-- Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
 - New plan items: H-A-08, H-A-09
-- Next resumable action: test near-duplicate clusters
 ```
 
 `handoff.md`가 훑어보기 어려울 만큼 커지면 오래된 완료 항목을 `docs/` 아래로 옮기고, 루트 handoff에는 짧은 요약과 링크만 남깁니다.
+
+이벤트는 무슨 일이 있었는지를 기록하고 지식은 **가리키기만** 하며 반복하지 않습니다. `Result`는 discovery를 가리키는 한 줄, `Artifacts`는 경로만 적고, 다음 할 일 줄은 없습니다. 각 슬롯의 활성 섹션에 있는 `Next action`이 유일한 "다음 할 일"입니다.
+
+### 무엇을 어디에 적나
+
+| 정보 | 기록 위치 | 다른 곳에서는 |
+| --- | --- | --- |
+| 주장, 수치, 해석 | `discoveries.md` | handoff `Result`가 discovery ID를 가리킴 |
+| 검증 상태와 이유 | `discoveries.md` (`Cross-check`, `Reviews`) | handoff `Review verdict`는 ID와 판정만 |
+| 누가, 언제, 어느 호스트에서, 무엇을 했나 | `handoff.md` 이벤트 | — |
+| 만들거나 바꾼 파일 | `handoff.md` `Artifacts` | discovery `Evidence`는 재현에 필요한 파일만 인용 |
+| 현재 최고 결과 등 프로젝트 공통 값 | `handoff.md` Shared state (discovery 인용) | `plan.md`에는 절대 두지 않음 |
+| 다음에 실험할 것 | `plan.md` `Next test` | handoff는 plan 항목 ID만 적음 |
+
+### 일관성 점검
+
+세션 시작, 작업 넘겨받기 직후, 세션 종료 전에 내장 점검 스크립트를 실행합니다:
+
+```bash
+python <installed-skill>/scripts/check_project.py .
+```
+
+파일 사이의 어긋남을 보고합니다. plan·handoff 섹션이 없는 활성 에이전트, handoff는 대기 중이라는데 `plan.md`에 없는 항목, 끝났거나 넘겨준 항목이 큐에 남은 경우, `plan.md`에 적힌 챔피언 같은 공통 값, 낡았거나 근거가 없는 `Current best`, 검토 기록과 맞지 않는 교차 확인 상태 등입니다. 문제마다 담당 에이전트가 표시되며, 자기 문제는 직접 고치고 다른 에이전트의 문제는 `Open consistency issues`에 적습니다.
 
 ---
 
@@ -444,7 +466,9 @@ research-orchestrator-skill/
     └── research-orchestrator-skill/
         ├── SKILL.md
         ├── agents/openai.yaml
-        ├── scripts/init_research_orchestrator.py
+        ├── scripts/
+        │   ├── init_research_orchestrator.py
+        │   └── check_project.py
         ├── templates/
         │   ├── AGENTS.md.template
         │   ├── PLAN.md.template
@@ -481,7 +505,8 @@ python scripts/validate_release.py
 - README(번역본 포함), SKILL.md, 템플릿, 실제 예시의 PLAN·DISCOVERIES·HANDOFF가 정확한 필드 순서를 따름.
 - 발견에 `Host`와 올바른 `Cross-check` 상태가 기록되고, 검토는 `<Host> (<Agent>)` 형식에 `CLOSED`, `HOLD`, `CHALLENGED` 중 하나를 쓰며, 작성자와 같은 호스트에서 오지 않음(`same host —` 표시 제외).
 - Resource 값은 PLAN에서 `CPU`/`GPU`/`EITHER`, HANDOFF에서 `CPU`/`GPU`/`Other`/`none`.
-- 실제 handoff 기록은 새 plan 항목을 나열하거나 `none — <reason>`으로 이유를 밝히고, 실제 `Priority` 값은 공식과 일치함.
+- 실제 handoff 기록은 discovery 갱신과 새 plan 항목을 나열하거나 `none — <reason>`으로 이유를 밝히고, 실제 `Priority` 값은 공식과 일치함.
+- 실제 예시와 새로 초기화한 프로젝트가 `check_project.py`를 통과함.
 - 에이전트 이름은 `A`-`Z`, `AA`-`ZZ`이고, ID는 `H-<Agent>-NN`과 `D-<Agent>-NNN` 형식을 따름.
 - 모든 README가 언어 전환 링크를 갖고, 상대 링크가 실제로 존재하며, 같은 이미지와 코드 블록 구조를 유지함.
 - 실제 예시의 `agents.md`가 현재 초기화 스크립트가 만드는 내용과 같음.

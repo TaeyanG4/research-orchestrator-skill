@@ -19,7 +19,7 @@
 - 長期にわたる研究を新しいセッションで再開できます。
 - 未完成の計画を共有せずに、複数のエージェントが独立して探索できます。
 - 完了した作業を取り除き、`plan.md` を小さく保ちます。
-- 同じアイデアを二度キューに入れません。失敗した仮説はネガティブな発見として記録され、新しい項目はすべて discoveries、handoff ログ、他のエージェントのキューと照合されます。
+- 同じアイデアを二度キューに入れません。完了した実験は結果にかかわらず（肯定・否定・結論なし）必ず発見として残り、新しい項目はすべて discoveries と他のエージェントのキューと照合されます。
 - 実験結果を再利用可能な共有の発見に変えます。
 - すべてのセッションが再レビューするのではなく、別のホストが各発見を 1 回だけ確認します。Codex の発見は Claude Code が検証し、その逆も同様です。
 - 有望だが未完成の発見は `HOLD` で保持します。
@@ -65,10 +65,10 @@ flowchart TD
 | --- | --- |
 | `agents.md` | 読み取り、編集、スコアリング、レビュー、リソースルーティングに関する固定ルール。 |
 | `plan.md` | **進行中の未完了作業のみ。** 各エージェントが自分のセクションを持ち、スコア付きキューに従って作業します。 |
-| `discoveries.md` | 再利用可能な共有の発見。すべてのエージェントが読み、各発見は別のホストが 1 回クロスチェックします。 |
-| `handoff.md` | 運用履歴、再開可能な状態、成果物、指標、ブロッカー、次のアクション。 |
+| `discoveries.md` | **わかっていること**：主張、数値、解釈、検証状態。完了した実験ごとに 1 件残り、各発見は別のホストが 1 回クロスチェックします。 |
+| `handoff.md` | **何が起きて、どこから再開するか**：誰が、いつ、どのホストで、成果物のパス、現在のベストなどのプロジェクト全体の値、スロットごとの再開地点。発見の内容は繰り返さず ID で指します。 |
 
-完了した項目は **`plan.md` から外れます**。実行履歴は `handoff.md` へ、再利用できる知識は `discoveries.md` へ移り、後続の仮説は新しいスコアで `plan.md` に戻ります。
+完了した項目は **`plan.md` から外れます**。結果にかかわらず発見 1 件とそれを指す handoff イベントを残し、後続の仮説は新しいスコアで `plan.md` に戻ります。
 
 ## テンプレートと実例
 
@@ -203,6 +203,8 @@ python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 
 `--agents` には `A,B,C` のような名前のリストを直接指定することもできます。初期化スクリプトは重複した名前や標準外の名前を拒否し、存在しないファイルだけを作成し、既存のプロジェクトファイルを上書きすることはありません。
 
+その後、セッションの開始時と終了前に毎回 `python <installed-skill>/scripts/check_project.py .` を実行してください（後述の*整合性チェック*を参照）。
+
 ## エージェント名
 
 エージェント名は、それを実行するツールやモデルではなく**作業スロット**です。Claude Code、Codex、Antigravity のどのホストも同じ名前を使います：
@@ -306,10 +308,9 @@ Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost
 
 ### 項目を追加する前の重複チェック
 
-1. ネガティブな結果も含めて `discoveries.md` を検索します。失敗した仮説は必ず `Finding: <claim> does not hold under <conditions>` の形で記録されています。`VERIFIED` の主張は実質的な `Improvement` がなければスキップし、`CHALLENGED` の主張は解決するまでスキップします。
-2. `handoff.md` の完了ログと `docs/` から以前の試みを探し、引用します。
-3. 他のエージェントの plan セクションを確認しますが、項目見出しと `Hypothesis` 行**だけ**を読みます。すでにキューにあれば追加しません。
-4. 書き込む直前に `plan.md` を読み直します。その間に同じ項目が現れていたら、先にあったものを残します。
+1. `discoveries.md` を検索します。完了した実験は肯定・否定（`Finding: <claim> does not hold under <conditions>`）・結論なしのいずれもここにあります。`VERIFIED` の主張は実質的な `Improvement` がなければスキップし、`CHALLENGED` の主張は解決するまでスキップします。
+2. 他のエージェントの plan セクションを確認しますが、項目見出しと `Hypothesis` 行**だけ**を読みます。すでにキューにあれば追加しません。
+3. 書き込む直前に `plan.md` を読み直します。その間に同じ項目が現れていたら、先にあったものを残します。
 
 ---
 
@@ -368,18 +369,39 @@ flowchart LR
 ### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
 - Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
-- Result: random/group CV gap shrank from 0.0135 to 0.0041
-- Evidence: experiments/e027_dedup_groups.py; outputs/e027.csv
-- Discovery updates: D-B-014, D-A-003
+- Result: duplicates explain most of the gap; see D-A-003 and the review on D-B-014
+- Artifacts: experiments/e027_dedup_groups.py; outputs/e027.csv
+- Discovery updates: D-B-014 (review), D-A-003
 - Review verdict: D-B-014 HOLD
-- Files/metrics: CV 0.9071 / 0.9030
 - Resource: CPU
 - Other executor: none
 - New plan items: H-A-08, H-A-09
-- Next resumable action: test near-duplicate clusters
 ```
 
 `handoff.md` が見通しにくくなったら、古い完了項目を `docs/` 以下にアーカイブし、ルートの handoff には短い要約とリンクだけを残します。
+
+イベントは何が起きたかを記録し、知識は**指し示すだけ**で繰り返しません。`Result` は発見を指す 1 行、`Artifacts` はパスのみで、次の作業の行はありません。各スロットのアクティブセクションにある `Next action` が唯一の「次の作業」です。
+
+### 何をどこに書くか
+
+| 情報 | 記録場所 | ほかの場所では |
+| --- | --- | --- |
+| 主張、数値、解釈 | `discoveries.md` | handoff の `Result` が発見 ID を指す |
+| 検証状態と理由 | `discoveries.md`（`Cross-check`、`Reviews`） | handoff の `Review verdict` は ID と判定のみ |
+| 誰が、いつ、どのホストで、何をしたか | `handoff.md` のイベント | — |
+| 作成・変更したファイル | `handoff.md` の `Artifacts` | 発見の `Evidence` は再現に必要なファイルだけを引用 |
+| 現在のベストなどプロジェクト全体の値 | `handoff.md` の Shared state（発見を引用） | `plan.md` には決して書かない |
+| 次にテストすること | `plan.md` の `Next test` | handoff は plan 項目の ID だけを書く |
+
+### 整合性チェック
+
+セッション開始時、引き継ぎの直後、セッション終了前に、同梱のチェックスクリプトを実行します：
+
+```bash
+python <installed-skill>/scripts/check_project.py .
+```
+
+ファイル間のずれを報告します。plan や handoff のセクションがないアクティブなエージェント、handoff ではキュー待ちとされているのに `plan.md` にない項目、完了済みまたは引き継ぎ済みなのにキューに残っている項目、`plan.md` に書かれたチャンピオンのようなプロジェクト全体の値、古いまたは根拠のない `Current best`、レビュー記録と合わないクロスチェック状態などです。問題ごとに担当エージェントが示され、自分の問題は自分で直し、他のエージェントの問題は `Open consistency issues` に記録します。
 
 ---
 
@@ -444,7 +466,9 @@ research-orchestrator-skill/
     └── research-orchestrator-skill/
         ├── SKILL.md
         ├── agents/openai.yaml
-        ├── scripts/init_research_orchestrator.py
+        ├── scripts/
+        │   ├── init_research_orchestrator.py
+        │   └── check_project.py
         ├── templates/
         │   ├── AGENTS.md.template
         │   ├── PLAN.md.template
@@ -481,7 +505,8 @@ python scripts/validate_release.py
 - README（翻訳版を含む）、SKILL.md、テンプレート、実例の PLAN・DISCOVERIES・HANDOFF が正確なフィールド順に従っている。
 - 発見に `Host` と有効な `Cross-check` 状態が記録され、レビューは `<Host> (<Agent>)` 形式で `CLOSED`、`HOLD`、`CHALLENGED` のいずれかを使い、作成者と同じホストから来ていない（`same host —` の表示がある場合を除く）。
 - Resource の値は PLAN では `CPU`/`GPU`/`EITHER`、HANDOFF では `CPU`/`GPU`/`Other`/`none`。
-- 実際の handoff イベントは新しい plan 項目を列挙するか `none — <reason>` と理由を書き、具体的な `Priority` の値は計算式と一致する。
+- 実際の handoff イベントは発見の更新と新しい plan 項目を列挙するか `none — <reason>` と理由を書き、具体的な `Priority` の値は計算式と一致する。
+- 実例と新しく初期化したプロジェクトが `check_project.py` を通過する。
 - エージェント名は `A`-`Z`、`AA`-`ZZ` で、ID は `H-<Agent>-NN` と `D-<Agent>-NNN` に従う。
 - すべての README に言語切り替えリンクがあり、相対リンクが実在し、画像とコードブロックの構成が同じである。
 - 初期化スクリプトは LF でファイルを書き出し、重複または標準外のエージェント名を拒否し、既存のプロジェクトファイルを上書きしない。
