@@ -1,0 +1,52 @@
+# {{PROJECT_NAME}} — Agent Rules
+
+## Read order
+
+1. `agents.md`
+2. all of `discoveries.md`
+3. `handoff.md`: shared completed/review log plus only your own active handoff section
+4. `plan.md`: only your own detailed `## Agent: <name>` section
+
+A dispatcher may inspect only task ID, owner, priority, resource, parallel-safety, and `Other` executor metadata across plan sections.
+
+## Core rules
+
+- Keep only unfinished active work in `plan.md`; execute highest priority first.
+- When a plan item finishes, write its operational result to `handoff.md`, reusable knowledge to `discoveries.md`, create any follow-up plan items, then remove the completed plan item.
+- Read all discoveries, but do not read another active agent's detailed plan or active handoff unless explicitly asked to review it.
+- `CLOSED`, `HOLD`, and `CHALLENGED` are per-agent verdicts in `discoveries.md`; never inherit another agent's verdict automatically.
+- A discovery may create zero, one, or many new hypotheses; one hypothesis may combine many discoveries.
+- When bringing a discovery back into `plan.md`, include `Sources`, `Evidence`, and `Improvement` so the new attempt is justified and materially different.
+- Re-score affected plan items when evidence changes.
+- Re-read shared files immediately before editing and patch only the relevant section or append a new entry.
+- Do not create per-agent continuity folders or a separate process file.
+- Create `docs/` only to archive old handoff history when needed.
+
+## Priority scoring
+
+Score 0-3 on Impact, Information, Confidence, Unblock, Diversity, and Cost (0 cheap, 3 expensive).
+
+```text
+Priority = 2*Impact + 2*Information + Confidence + Unblock + Diversity + (3-Cost)
+```
+
+Break ties by lower Cost, then higher Information.
+
+Each plan item also declares:
+
+```text
+Resource: CPU | GPU | EITHER
+Parallel: YES | NO
+Other: NONE | <external executor>
+# Example: Other: Kaggle
+```
+
+## Adaptive workers
+
+When parallel work is useful, start with two workers and add more only while independent high-value work and compute headroom remain. Stop at practical full load before contention reduces throughput.
+
+- Fill idle GPU with the highest-priority compatible GPU/EITHER item.
+- Fill idle CPU with the highest-priority compatible CPU/EITHER item.
+- Use the idle local resource while the other is busy.
+- When local CPU and GPU are saturated, use an available `Other` executor only for worthwhile compatible work and only when authorization/quotas permit it.
+- Scale down when memory pressure, I/O contention, duplicated work, or lower throughput appears.
