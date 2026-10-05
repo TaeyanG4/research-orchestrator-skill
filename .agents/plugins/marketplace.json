@@ -1,0 +1,21 @@
+{
+  "name": "research-orchestrator",
+  "interface": {
+    "displayName": "Research Orchestrator"
+  },
+  "plugins": [
+    {
+      "name": "research-orchestrator",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/TaeyanG4/research-orchestrator-skill.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
