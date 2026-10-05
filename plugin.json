@@ -2,5 +2,32 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "research-orchestrator",
   "version": "1.0.0",
-  "description": "Hypothesis-driven research orchestration with scored plans, independent discovery review, adaptive workers, resource-aware execution, and durable handoffs."
+  "description": "Hypothesis-driven research orchestration with scored plans, independent discovery review, adaptive workers, resource-aware execution, and durable handoffs.",
+  "author": {
+    "name": "TaeyanG4",
+    "url": "https://github.com/TaeyanG4"
+  },
+  "homepage": "https://github.com/TaeyanG4/research-orchestrator-skill",
+  "repository": "https://github.com/TaeyanG4/research-orchestrator-skill",
+  "license": "MIT",
+  "keywords": ["research", "multi-agent", "hypothesis", "experiments", "handoff", "peer-review"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Research Orchestrator",
+        "shortDescription": "Orchestrate agent research",
+        "longDescription": "Coordinate hypothesis-driven research with scored per-agent queues, independent CLOSED/HOLD/CHALLENGED discovery verdicts, adaptive workers, resource-aware CPU/GPU/Other execution, and durable handoff history. Designed for research, experimentation, Kaggle-style validation, and long-running work that must survive session boundaries.",
+        "developerName": "TaeyanG4",
+        "category": "Productivity",
+        "capabilities": ["Prioritize hypotheses", "Review discoveries", "Route experiments", "Resume research"],
+        "websiteURL": "https://github.com/TaeyanG4/research-orchestrator-skill",
+        "defaultPrompt": [
+          "Initialize Research Orchestrator for this project.",
+          "Review discoveries, generate scored hypotheses, and work the highest-priority item.",
+          "Resume this project from the handoff and continue my agent's plan."
+        ],
+        "brandColor": "#1687D9"
+      }
+    }
+  }
 }
