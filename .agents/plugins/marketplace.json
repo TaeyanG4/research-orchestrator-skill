@@ -7,9 +7,8 @@
     {
       "name": "research-orchestrator",
       "source": {
-        "source": "url",
-        "url": "https://github.com/TaeyanG4/research-orchestrator-skill.git",
-        "ref": "main"
+        "source": "local",
+        "path": "./"
       },
       "policy": {
         "installation": "AVAILABLE",
