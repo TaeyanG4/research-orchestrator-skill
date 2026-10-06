@@ -5,14 +5,16 @@ This file records **what happened and where to resume**. What is known — claim
 ## Shared state
 
 - Active agent(s): A, B, C
+- Users: kim, lee
 - Current project state: validation fixed to deduplicated GroupKFold; feature work in progress
 - Current best: baseline LightGBM, GroupKFold CV 0.9030 (D-A-001)
 - Active compute: CPU — B (H-B-03, since 2026-10-05 18:05)
+- Plan collection: idle
 - Open consistency issues: none
 
 Project-wide values live only here, never in `plan.md`. `Current best` always cites the discovery that set it, for example `fold-aware TE, GroupKFold CV 0.9112 (D-A-005)`; when a discovery's `Implication` starts with `new current best:`, update it in the same step. List problems you found in another agent's sections under `Open consistency issues`; the owner or the user resolves them and removes the line.
 
-`Active compute` lists claims on heavy compute as `<CPU|GPU|Other> — <Agent> (<plan item>, since YYYY-MM-DD HH:MM)`, separated by `; `, or `none`. Check the claims and the machine's real usage before launching; add your claim in the same step as the launch and remove it in the same step that records the job's end. A claim held by a released slot is stale and may be cleared by anyone, with a note in their next event.
+`Users` lists everyone who has run a session (`kim, lee`); add yourself the first time. `Plan collection` is `idle`, or `running — <Agent> (since YYYY-MM-DD HH:MM)` while a plan collector round runs (see `Plan collector` in `agents.md`). `Active compute` lists claims on heavy compute as `<CPU|GPU|Other> — <Agent> (<plan item>, since YYYY-MM-DD HH:MM)`, separated by `; `, or `none`; when sessions run on more than one machine, add the machine: `GPU@kim-desktop — A (...)`. Check the claims and the machine's real usage before launching; add your claim in the same step as the launch and remove it in the same step that records the job's end. A claim held by a released slot is stale and may be cleared by anyone, with a note in their next event.
 
 Agent names are work slots (`A`, `B`, `C`, ...), never host or model names. A new concurrent session takes the next unused name and adds it to `Active agent(s)` together with its plan and handoff sections.
 
@@ -20,12 +22,13 @@ Agent names are work slots (`A`, `B`, `C`, ...), never host or model names. A ne
 
 Each research agent reads and edits only its own active handoff section. Do not copy another agent's unfinished plan here.
 
-- `Current host` records which host (Claude Code, Codex, Antigravity, ...) currently owns the slot. A slot is free when it reads `unassigned` or `released`; a free slot that still holds plan items left by a different host is skipped unless the user assigns it. Set it to your host when you take or resume the slot, and to `released` when you close the session. Other sessions may read only the `Current host` and `Current thread` lines of your section: to find a free slot, or to take over a queued item when their own queue runs out — never your `Current thread` or an item under an `Active compute` claim (same host by default; cross-host only by the documented exception).
+- `Current host` records which host (Claude Code, Codex, Antigravity, ...) currently owns the slot. A slot is free when it reads `unassigned` or `released`; a free slot that still holds plan items left by a different host is skipped unless the user assigns it. Set it to your host when you take or resume the slot, and to `released` when you close the session. `Current user` is the person running the session (`kim`); set it with `Current host` and reset it to `none` on release. Other sessions may read only the `Current host`, `Current user`, and `Current thread` lines of your section: to find a free slot, or to take over a queued item when their own queue runs out — never your `Current thread` or an item under an `Active compute` claim (same host by default; cross-host only by the documented exception).
 - `Resumable state` is half-done work that exists nowhere else: a drafted script, a running job, a partial output.
 - `Next action` names plan item IDs (`H-B-03, then H-B-02`) or a step that is not a plan item; it does not restate the item's `Next test`. Every ID named here must exist in `plan.md`.
 
 ### Agent: A
 - Current host: Claude Code
+- Current user: kim
 - Current thread: H-A-04
 - Resumable state: experiments/e004_fold_te.py drafted, not run yet
 - Blocker: none
@@ -33,6 +36,7 @@ Each research agent reads and edits only its own active handoff section. Do not 
 
 ### Agent: B
 - Current host: Codex
+- Current user: lee
 - Current thread: H-B-03 (cross-check of D-A-001)
 - Resumable state: experiments/e002_dedup.py running with fold seed 11
 - Blocker: none
@@ -40,6 +44,7 @@ Each research agent reads and edits only its own active handoff section. Do not 
 
 ### Agent: C
 - Current host: released
+- Current user: none
 - Current thread: none
 - Resumable state: none; H-C-02 was taken over by A as H-A-04
 - Blocker: none
@@ -55,6 +60,7 @@ Use this exact format:
 ```markdown
 ### YYYY-MM-DD HH:MM — A — H-A-01
 - Host: Claude Code | Codex | Antigravity | <other>
+- User: <user name>
 - Action: ...
 - Result: <one line>; see <discovery ID>
 - Artifacts: <paths> / none
@@ -74,6 +80,7 @@ Use this exact format:
 
 ### 2026-10-05 14:20 — B — H-B-01
 - Host: Codex
+- User: lee
 - Action: compared random KFold with GroupKFold on customer_id groups
 - Result: random CV is optimistic; see D-B-001
 - Artifacts: experiments/e001_group_check.py; outputs/e001.csv
@@ -85,6 +92,7 @@ Use this exact format:
 
 ### 2026-10-05 15:05 — A — H-A-01
 - Host: Claude Code
+- User: kim
 - Action: cross-checked D-B-001 with fold seed 7
 - Result: reproduced; see the review on D-B-001
 - Artifacts: outputs/e001_seed7.csv
@@ -96,6 +104,7 @@ Use this exact format:
 
 ### 2026-10-05 16:40 — A — H-A-02
 - Host: Claude Code
+- User: kim
 - Action: removed exact duplicate rows and rebuilt GroupKFold folds
 - Result: duplicates explain most of the gap and set a new current best; see D-A-001
 - Artifacts: experiments/e002_dedup.py; outputs/e002.csv
@@ -107,6 +116,7 @@ Use this exact format:
 
 ### 2026-10-05 17:30 — C — H-C-01
 - Host: Claude Code
+- User: kim
 - Action: audited categorical encoders for leakage under GroupKFold
 - Result: encoders are fit before the fold split; see D-C-001
 - Artifacts: notes/encoding_audit.md
@@ -118,6 +128,7 @@ Use this exact format:
 
 ### 2026-10-05 18:10 — A — H-A-03
 - Host: Claude Code
+- User: kim
 - Action: tested global target encoding on deduplicated data
 - Result: hypothesis failed; see D-A-002
 - Artifacts: experiments/e003_target_encoding.py; outputs/e003.csv
@@ -129,6 +140,7 @@ Use this exact format:
 
 ### 2026-10-05 18:20 — A — H-A-04
 - Host: Claude Code
+- User: kim
 - Action: took over H-C-02 from C (same host) as H-A-04
 - Result: moved into A's section and rescored to 17; C is released and its latest event came from Claude Code
 - Artifacts: none

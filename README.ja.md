@@ -39,6 +39,8 @@ flowchart LR
 
     D -->|後続 0〜N 件| H
     H --> P --> W --> E --> D
+    C["プラン収集器<br/>サブエージェント"] -->|"キューが再開下限<br/>以下のとき"| P
+    R["レビュアー<br/>サブエージェント"] -->|クロスチェック| D
     P --> O
     E --> O
     D --> O
@@ -50,7 +52,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[AGENTS.md<br/>ルール、スコア、レビュー、ルーティング]
+    A[AGENTS.md<br/>設定、ルール、スコア、レビュー、ルーティング]
     P[PLAN.md<br/>進行中の作業のみ]
     D[DISCOVERIES.md<br/>再利用可能な共有の発見]
     H[HANDOFF.md<br/>運用記録]
@@ -189,23 +191,55 @@ Antigravity CLI で `/skills` を使い、認識されたことを確認して�
 
 # クイックスタート
 
-4 つのプロジェクトファイルを初期化します：
+初めて使うとき、エージェントは 3 つの質問（名前、プラットフォーム、git 同期。後述の*設定の質問*を参照）をしてからプロジェクトを初期化します。初期化スクリプトを自分で実行することもできます。1 人・1 プラットフォーム・git なし：
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --user kim --platform single --platforms "Claude Code" --git off
 ```
 
-複数の独立したエージェントで開始します（`2` → `A, B`）：
+2 つのプラットフォームで同時に 2 つのエージェント（`2` → `A, B`）を動かし、git で共有：
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2 --user kim --platform multi --platforms "Claude Code, Codex" --git push --collector "Claude Code/sonnet" --queue-limits 50,5 --reviewer "Codex/sol" --fallback wait
 ```
 
 `--agents` には `A,B,C` のような名前のリストを直接指定することもできます。初期化スクリプトは重複した名前や標準外の名前を拒否し、存在しないファイルだけを作成し、既存のプロジェクトファイルを上書きすることはありません。
 
 その後、セッションの開始時と終了前に毎回 `python <installed-skill>/scripts/check_project.py .` を実行してください（後述の*整合性チェック*を参照）。
 
+## 設定の質問
+
+| 質問 | 選択肢 | 変わること |
+| --- | --- | --- |
+| 名前 | 1 語。例：`kim`、`user1` | `Users`、`Current user`、各イベントの `User` に記録され、複数人で 1 つのプロジェクトを共有できる |
+| プラットフォーム | `multi` — 複数のプラットフォームを同時に使う（例：Claude Code と Codex）<br>`single` — 1 つのプラットフォーム<br>`adaptive` — 状況による | それに合わせて `agents.md` が生成される：`single` はホスト間のルールを省きスロット間でクロスチェック、`multi` はホスト間でクロスチェック、`adaptive` は別ホストを優先し、いなければ別スロットで |
+| Git 同期 | `push` — 自動でコミットとプッシュ<br>`commit` — ローカルコミットのみ<br>`off` — git を使わない | `push` は編集前に `git pull --rebase`、連動する変更ごととセッション終了時にコミットとプッシュ。人やセッションが別のマシンで作業する場合に必要 |
+| プラン収集器 | `off`、またはプラットフォーム/モデル（例：`Claude Code/sonnet`、`Codex/sol`）と積み上げ上限（既定 `50,5`） | サブエージェントが多様な研究候補を `plan.md` に集める。キューが再開下限（5）まで減ると収集を始め、停止上限（50）に達すると止まる |
+| レビュアー | `off`、またはプラットフォーム/モデル（例：`Codex/sol`） | 完了した作業のクロスチェックをレビュアーのサブエージェントが担い、メインのエージェントは実験を続ける |
+| クロスチェックの代替 | `wait` または `same-host` | キューが空になり、別プラットフォームでの確認が必要な項目だけが残ったとき：そのままにするか、同じプラットフォームのモデルで進める（`same host —`） |
+
+<p align="center">
+  <img src="assets/readme/setup.svg" alt="6 つの設定の質問（名前、プラットフォーム、git 同期、プラン収集器、レビュアー、クロスチェックの代替）の回答が agents.md の Project settings になり、プラン収集器はキューが 5 件以下で始まり 50 件で止まる" width="100%">
+</p>
+
+回答は `agents.md` 冒頭の `## Project settings` に記録され、以降のセッションは質問を繰り返さずにこの設定を読み、ユーザー名だけを尋ねます。これらの行はいつでも直接編集できます。収集器、積み上げ上限、レビュアー、代替方式はすぐに反映され、プラットフォームモード・プラットフォーム・git 同期を編集したあとは、次を実行してルールを再生成します（`agents.md` だけを書き直し、ルール本文を手で編集している場合は `--force` なしでは上書きしません）：
+
+```bash
+python <installed-skill>/scripts/init_research_orchestrator.py . --reconfigure --platform adaptive --git push
+```
+
 ## エージェント名
+
+どのセッションにも 3 種類の名前が出てきます。混同しないでください：
+
+| 名前 | 意味 | 例 |
+| --- | --- | --- |
+| エージェント（スロット） | 作業スロット | `A`、`B`、`AA` |
+| ホスト | モデルではなくプラットフォーム | `Claude Code`、`Codex` |
+| ユーザー | セッションを実行する人 | `kim`、`user1` |
+
+別のユーザーが実行中のスロットから作業を引き継ぐことはありません。
+
 
 エージェント名は、それを実行するツールやモデルではなく**作業スロット**です。Claude Code、Codex、Antigravity のどのホストも同じ名前を使います：
 
@@ -220,11 +254,13 @@ A, B, C, ... Z, AA, AB, ... ZZ
 ```markdown
 ### Agent: A
 - Current host: Claude Code
+- Current user: kim
 - Current thread: H-A-04
 ...
 
 ### Agent: B
 - Current host: Codex
+- Current user: lee
 - Current thread: H-B-02
 ...
 ```
@@ -344,6 +380,8 @@ flowchart LR
     R -->|CHALLENGED| C[CHALLENGED]
     H -->|作成者が根拠を追加| P
     C -->|作成者が修正| P
+    P -.->|"別ホストなし、<br/>代替は same-host"| F["同じホストでのレビュー<br/>（Codex セッション）"]
+    F -.->|CLOSED| V
 ```
 
 `Cross-check` の状態：
@@ -369,6 +407,7 @@ flowchart LR
 ```markdown
 ### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
+- User: kim
 - Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
 - Result: duplicates explain most of the gap; see D-A-003 and the review on D-B-014
 - Artifacts: experiments/e027_dedup_groups.py; outputs/e027.csv
@@ -516,6 +555,8 @@ python scripts/validate_release.py
 - 実例と新しく初期化したプロジェクトが `check_project.py` を通過する。
 - エージェント名は `A`-`Z`、`AA`-`ZZ` で、ID は `H-<Agent>-NN` と `D-<Agent>-NNN` に従う。
 - すべての README に言語切り替えリンクがあり、相対リンクが実在し、画像とコードブロックの構成が同じである。
+- 収集器、レビュアー、積み上げ上限、代替方式の設定が検証され、直接編集した設定は `--reconfigure` で適用される。
+- すべてのプラットフォームモード（`single`、`multi`、`adaptive`）× git モード（`push`、`commit`、`off`）の組み合わせで、きれいな `agents.md` が生成されてチェックを通り、`--reconfigure` は手での編集を上書きしない。
 - 初期化スクリプトは LF でファイルを書き出し、重複または標準外のエージェント名を拒否し、既存のプロジェクトファイルを上書きしない。
 
 # ライセンス

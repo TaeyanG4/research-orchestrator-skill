@@ -27,9 +27,16 @@ PLAN_FIELDS = [
 ]
 DISCOVERY_FIELDS = ["Source", "Host", "Cross-check", "Finding", "Evidence", "Implication", "Reviews"]
 EVENT_FIELDS = [
-    "Host", "Action", "Result", "Artifacts", "Discovery updates", "Review verdict",
+    "Host", "User", "Action", "Result", "Artifacts", "Discovery updates", "Review verdict",
     "Resource", "Other executor", "New plan items",
 ]
+PLATFORM_MODES = {"multi", "single", "adaptive"}
+GIT_MODES = {"push", "commit", "off"}
+FALLBACKS = {"wait", "same-host"}
+SUB_AGENT = re.compile(r"^on — (.+?) / (.+)$")
+QUEUE_LIMITS = re.compile(r"^stop at (\d+), resume at (\d+)$")
+COLLECTION = re.compile(r"^running — ([A-Z]{1,2}) \(since \d{4}-\d{2}-\d{2} \d{2}:\d{2}\)$")
+USER_NAME = re.compile(r"^[^\W_][\w-]{0,31}$")
 CROSS_CHECK_STATES = {"PENDING", "REVIEWING", "VERIFIED", "HOLD", "CHALLENGED"}
 VERDICT_FOR_STATE = {"VERIFIED": "CLOSED", "HOLD": "HOLD", "CHALLENGED": "CHALLENGED"}
 FREE_HOSTS = {"unassigned", "released"}
@@ -37,8 +44,8 @@ FREE_HOSTS = {"unassigned", "released"}
 H_ID = re.compile(r"\bH-[A-Za-z]+-\d+\b")
 D_ID = re.compile(r"\bD-[A-Za-z]+-\d+\b")
 FIELD = re.compile(r"^- ([A-Za-z/() -]+?):\s?(.*)$")
-REVIEW = re.compile(r"^\s+- (.+?) \((\S+)\): (\S+) — ")
-CLAIM = re.compile(r"^(CPU|GPU|Other) — ([A-Z]{1,2}) \((H-[A-Za-z]+-\d+), since (\d{4}-\d{2}-\d{2} \d{2}:\d{2})\)$")
+REVIEW = re.compile(r"^\s+- (.+?) \((\S+)\): (\S+) — (.*)$")
+CLAIM = re.compile(r"^((?:CPU|GPU|Other)(?:@[\w.-]+)?) — ([A-Z]{1,2}) \((H-[A-Za-z]+-\d+), since (\d{4}-\d{2}-\d{2} \d{2}:\d{2})\)$")
 TAKE_OVER = re.compile(
     r"^took over (H-[A-Za-z]+-\d+) from ([A-Z]{1,2}) \((same host|cross-host:.*?)\) as (H-[A-Za-z]+-\d+)"
 )
@@ -294,6 +301,8 @@ class Checker:
             self.problem(where, f"take-over gives {new_id}, which is not an ID of agent {event.owner}", event.owner)
         if old_id.startswith(f"H-{event.owner}-") or source == event.owner:
             self.problem(where, f"agent {event.owner} cannot take over its own item {old_id}", event.owner)
+        if kind.startswith("cross-host") and self.settings.get("Platform mode") == "single":
+            self.problem(where, "cross-host take-over is not allowed in a single-platform project", event.owner)
         if kind.startswith("cross-host"):
             reason = kind.split("reason:", 1)[1].strip() if "reason:" in kind else ""
             if not reason:
@@ -326,7 +335,12 @@ class Checker:
             state = raw_state.split(" ", 1)[0]
             if state not in CROSS_CHECK_STATES:
                 self.problem(where, f"{disc.key} has unknown Cross-check state '{raw_state}'", disc.owner)
-            verdicts = [m.group(3) for line in disc.extra if (m := REVIEW.match(line))]
+            reviews = [m for line in disc.extra if (m := REVIEW.match(line))]
+            verdicts = [m.group(3) for m in reviews]
+            for review in reviews:
+                if review.group(1) == disc.fields.get("Host") and not review.group(4).startswith("same host —"):
+                    self.problem(where, f"{disc.key} is reviewed by its own host ({review.group(1)}); "
+                                        "a same-host review must start its reason with 'same host —'", review.group(2))
             if state in VERDICT_FOR_STATE and VERDICT_FOR_STATE[state] not in verdicts:
                 self.problem(where, f"{disc.key} is {state} but has no '{VERDICT_FOR_STATE[state]}' review line", disc.owner)
             if state in {"VERIFIED", "HOLD"} and "CHALLENGED" in verdicts:
@@ -377,7 +391,7 @@ class Checker:
             match = CLAIM.match(claim)
             if not match:
                 self.problem("handoff.md", f"Active compute claim '{claim}' must read "
-                                           "'<CPU|GPU|Other> — <Agent> (<H-item>, since YYYY-MM-DD HH:MM)'")
+                                           "'<CPU|GPU|Other>[@machine] — <Agent> (<H-item>, since YYYY-MM-DD HH:MM)'")
                 continue
             resource, agent, item_id, _since = match.groups()
             section = self.handoff_sections.get(agent)
@@ -394,6 +408,127 @@ class Checker:
             elif item.owner != agent:
                 self.problem("handoff.md", f"{resource} claim by {agent} is for {item_id}, which belongs to {item.owner}", agent)
 
+    def parse_settings(self, text: str) -> None:
+        self.agents_text = text
+        self.settings: dict[str, str] = {}
+        in_settings = False
+        for line in unfenced(text):
+            if line.startswith("## "):
+                in_settings = line.strip() == "## Project settings"
+            elif in_settings and (match := FIELD.match(line)):
+                self.settings[match.group(1)] = match.group(2).strip()
+        self.platforms = [p.strip() for p in self.settings.get("Platforms", "").split(",") if p.strip()]
+
+    def check_settings(self) -> None:
+        mode = self.settings.get("Platform mode")
+        git = self.settings.get("Git sync")
+        if mode is None or git is None or not self.platforms:
+            self.problem("agents.md", "missing '## Project settings' (Platform mode, Platforms, Git sync); "
+                                      "regenerate it with init_research_orchestrator.py --reconfigure --force")
+            return
+        if mode not in PLATFORM_MODES:
+            self.problem("agents.md", f"Platform mode '{mode}' must be one of {sorted(PLATFORM_MODES)}")
+        if git not in GIT_MODES:
+            self.problem("agents.md", f"Git sync '{git}' must be one of {sorted(GIT_MODES)}")
+        if mode == "single" and len(self.platforms) != 1:
+            self.problem("agents.md", "Platform mode single needs exactly one entry in Platforms")
+        if mode == "multi" and len(self.platforms) < 2:
+            self.problem("agents.md", "Platform mode multi needs at least two entries in Platforms")
+        for label in ("Plan collector", "Reviewer"):
+            value = self.settings.get(label)
+            if value is None:
+                self.problem("agents.md", f"Project settings has no '{label}' line (use 'off')")
+            elif value != "off":
+                match = SUB_AGENT.match(value)
+                if not match:
+                    self.problem("agents.md", f"{label} '{value}' must be 'off' or 'on — <platform> / <model>'")
+                elif match.group(1) not in self.platforms:
+                    self.problem("agents.md", f"{label} platform '{match.group(1)}' is not in Platforms")
+        limits = self.settings.get("Plan queue limits")
+        match = QUEUE_LIMITS.match(limits or "")
+        if not match:
+            self.problem("agents.md", "Plan queue limits must read 'stop at <N>, resume at <M>'")
+        elif int(match.group(2)) >= int(match.group(1)):
+            self.problem("agents.md", "Plan queue limits need resume < stop")
+        fallback = self.settings.get("Cross-check fallback")
+        if fallback not in FALLBACKS:
+            self.problem("agents.md", f"Cross-check fallback '{fallback}' must be one of {sorted(FALLBACKS)}")
+        self.check_rules_in_sync(mode, git)
+
+    def check_rules_in_sync(self, mode: str, git: str) -> None:
+        """Note when Platform mode or Git sync was edited without regenerating the rules."""
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import init_research_orchestrator as init
+        except Exception:
+            return
+        sample = {"project": "x", "platforms": ", ".join(self.platforms), "collector": "off",
+                  "limits": init.DEFAULT_LIMITS, "reviewer": "off", "fallback": "wait", "mode": mode, "git": git}
+        try:
+            expected = init.rules_body(init.render_agents(sample))
+        except Exception:
+            return
+        if init.rules_body(self.agents_text) != expected:
+            self.notes.append("the rules in agents.md do not match its Platform mode / Git sync settings; "
+                              "if you edited those settings, run init_research_orchestrator.py . --reconfigure")
+
+    def check_users_and_hosts(self) -> None:
+        raw = self.shared.get("Users")
+        if raw is None:
+            self.problem("handoff.md", "Shared state has no 'Users' line (use 'none yet' until someone runs a session)")
+            users: set[str] = set()
+        else:
+            users = set() if raw.lower() == "none yet" else {u.strip() for u in raw.split(",") if u.strip()}
+        for user in users:
+            if not USER_NAME.match(user) or user in AGENT_NAMES:
+                self.problem("handoff.md", f"user name '{user}' must be one word like kim or user1, not a slot name")
+
+        def check_host(host: str, where: str, owner: str) -> None:
+            if self.platforms and host and host not in self.platforms:
+                self.problem(where, f"host '{host}' is not in Platforms ({', '.join(self.platforms)}); "
+                                    "add it with --reconfigure if this project now uses it", owner)
+
+        for name, section in self.handoff_sections.items():
+            where = f"handoff.md:{section.line}"
+            host = section.fields.get("Current host", "")
+            user = section.fields.get("Current user")
+            if user is None:
+                self.problem(where, f"agent {name}'s section has no 'Current user' line", name)
+            elif host.lower() in FREE_HOSTS:
+                if user.lower() not in {"none", "unassigned"}:
+                    self.problem(where, f"agent {name} is {host} but still names user '{user}'; set Current user: none", name)
+            else:
+                check_host(host, where, name)
+                if user not in users:
+                    self.problem(where, f"agent {name}'s Current user '{user}' is not listed in Users", name)
+        for event in self.events:
+            where = f"handoff.md:{event.line}"
+            check_host(event.fields.get("Host", ""), where, event.owner)
+            user = event.fields.get("User", "")
+            if user and user not in users:
+                self.problem(where, f"event user '{user}' is not listed in Users", event.owner)
+        for disc in self.discoveries.values():
+            check_host(disc.fields.get("Host", ""), f"discoveries.md:{disc.line}", disc.owner)
+
+    def check_collection(self) -> None:
+        value = self.shared.get("Plan collection")
+        if value is None:
+            self.problem("handoff.md", "Shared state has no 'Plan collection' line (use 'idle')")
+            return
+        if value == "idle":
+            return
+        match = COLLECTION.match(value)
+        if not match:
+            self.problem("handoff.md", f"Plan collection '{value}' must be 'idle' or 'running — <Agent> (since YYYY-MM-DD HH:MM)'")
+            return
+        agent = match.group(1)
+        section = self.handoff_sections.get(agent)
+        if section is None or section.fields.get("Current host", "").lower() in FREE_HOSTS:
+            self.problem("handoff.md", f"Plan collection is still marked running by {agent}, whose slot is released; "
+                                       "set it to idle and log the cleanup", agent)
+        if self.settings.get("Plan collector", "off") == "off":
+            self.problem("handoff.md", "Plan collection is running but Plan collector is off in agents.md", agent)
+
     def check_open_issues(self) -> None:
         value = self.shared.get("Open consistency issues")
         if value is None:
@@ -407,9 +542,12 @@ class Checker:
         if missing:
             print(f"CONSISTENCY: missing {', '.join(missing)} in {self.root}")
             return 2
+        self.parse_settings(files["agents.md"].read_text(encoding="utf-8"))
         self.parse_plan(unfenced(files["plan.md"].read_text(encoding="utf-8")))
         self.parse_discoveries(unfenced(files["discoveries.md"].read_text(encoding="utf-8")))
         self.parse_handoff(unfenced(files["handoff.md"].read_text(encoding="utf-8")))
+        self.check_settings()
+        self.check_users_and_hosts()
         self.check_agents()
         self.check_handoff_sections()
         self.check_events()
@@ -418,6 +556,7 @@ class Checker:
         self.check_discoveries()
         self.check_current_best()
         self.check_compute()
+        self.check_collection()
         self.check_open_issues()
 
         for note in self.notes:

@@ -39,6 +39,8 @@ flowchart LR
 
     D -->|후속 0~N개| H
     H --> P --> W --> E --> D
+    C["플랜 수집기<br/>하위 에이전트"] -->|"큐가 재개 한도<br/>이하일 때"| P
+    R["리뷰어<br/>하위 에이전트"] -->|교차 확인| D
     P --> O
     E --> O
     D --> O
@@ -50,7 +52,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[AGENTS.md<br/>규칙, 점수, 리뷰, 라우팅]
+    A[AGENTS.md<br/>설정, 규칙, 점수, 리뷰, 라우팅]
     P[PLAN.md<br/>진행 중인 작업만]
     D[DISCOVERIES.md<br/>재사용 가능한 공유 발견]
     H[HANDOFF.md<br/>운영 기록]
@@ -189,23 +191,55 @@ Antigravity CLI에서 `/skills`로 인식되었는지 확인하세요.
 
 # 빠른 시작
 
-프로젝트 파일 네 개를 초기화합니다:
+처음 사용할 때 에이전트가 세 가지(이름, 플랫폼, git 동기화)를 묻고(아래 *설정 질문* 참고) 프로젝트를 초기화합니다. 초기화 스크립트를 직접 실행할 수도 있습니다. 한 사람이 한 플랫폼에서 git 없이:
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --user kim --platform single --platforms "Claude Code" --git off
 ```
 
-여러 독립 에이전트로 시작합니다 (`2` → `A, B`):
+두 플랫폼에서 동시에 에이전트 두 개(`2` → `A, B`)로, git으로 공유하며:
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2 --user kim --platform multi --platforms "Claude Code, Codex" --git push --collector "Claude Code/sonnet" --queue-limits 50,5 --reviewer "Codex/sol" --fallback wait
 ```
 
 `--agents`에는 `A,B,C`처럼 이름 목록을 직접 넣을 수도 있습니다. 초기화 스크립트는 중복되거나 표준이 아닌 이름을 거부하고, 없는 파일만 만들며, 기존 프로젝트 파일은 절대 덮어쓰지 않습니다.
 
 이후 세션을 시작할 때와 끝낼 때마다 `python <installed-skill>/scripts/check_project.py .`을 실행하세요(아래 *일관성 점검* 참고).
 
+## 설정 질문
+
+| 질문 | 선택지 | 바뀌는 것 |
+| --- | --- | --- |
+| 이름 | 한 단어, 예: `kim`, `user1` | `Users`, `Current user`, 이벤트의 `User`에 기록되어 여러 사람이 한 프로젝트를 함께 쓸 수 있음 |
+| 플랫폼 | `multi` — 여러 플랫폼 동시 사용(예: Claude Code와 Codex)<br>`single` — 한 플랫폼<br>`adaptive` — 상황에 따라 | `agents.md`가 이에 맞게 생성됨: `single`은 호스트 간 규칙을 빼고 슬롯끼리 교차 확인, `multi`는 호스트끼리 교차 확인, `adaptive`는 다른 호스트를 우선하고 없으면 다른 슬롯으로 |
+| Git 동기화 | `push` — 자동 커밋과 푸시<br>`commit` — 로컬 커밋만<br>`off` — git 사용 안 함 | `push`는 수정 전 `git pull --rebase`, 연결된 변경과 세션 종료 때마다 커밋과 푸시. 사람이나 세션이 다른 컴퓨터에서 일하면 필요 |
+| 플랜 수집기 | `off` 또는 플랫폼/모델(예: `Claude Code/sonnet`, `Codex/sol`), 그리고 적재 한도(기본 `50,5`) | 하위 에이전트가 다양한 연구 후보를 `plan.md`에 모음. 큐가 재개 한도(5)까지 줄면 수집을 시작하고 중단 한도(50)에 닿으면 멈춤 |
+| 리뷰어 | `off` 또는 플랫폼/모델(예: `Codex/sol`) | 끝난 작업의 교차 확인을 리뷰어 하위 에이전트가 맡아 메인 에이전트는 실험을 계속함 |
+| 교차 확인 대체 방식 | `wait` 또는 `same-host` | 큐가 비었는데 다른 플랫폼의 확인이 필요한 항목만 남았을 때: 그대로 두거나, 같은 플랫폼 모델로 진행(`same host —`) |
+
+<p align="center">
+  <img src="assets/readme/setup.svg" alt="설정 질문 여섯 가지(이름, 플랫폼, git 동기화, 플랜 수집기, 리뷰어, 교차 확인 대체 방식)의 답이 agents.md의 Project settings가 되고, 플랜 수집기는 큐가 5개 이하일 때 시작해 50개에서 멈춤" width="100%">
+</p>
+
+답은 `agents.md` 맨 위 `## Project settings`에 기록되고, 이후 세션은 다시 묻지 않고 이 설정을 읽으며 사용자 이름만 묻습니다. 이 줄들은 언제든 직접 고칠 수 있습니다. 수집기, 적재 한도, 리뷰어, 대체 방식은 바로 적용되고, 플랫폼 모드·플랫폼·git 동기화를 고친 뒤에는 아래를 실행해 규칙을 다시 생성합니다(`agents.md`만 다시 쓰며, 규칙 본문을 손으로 고쳤다면 `--force` 없이는 덮어쓰지 않습니다):
+
+```bash
+python <installed-skill>/scripts/init_research_orchestrator.py . --reconfigure --platform adaptive --git push
+```
+
 ## 에이전트 이름
+
+모든 세션에는 이름이 세 가지 나옵니다. 서로 섞지 마세요:
+
+| 이름 | 의미 | 예시 |
+| --- | --- | --- |
+| 에이전트(슬롯) | 작업 자리 | `A`, `B`, `AA` |
+| 호스트 | 모델이 아니라 플랫폼 | `Claude Code`, `Codex` |
+| 사용자 | 세션을 실행하는 사람 | `kim`, `user1` |
+
+다른 사용자가 실행 중인 슬롯에서는 작업을 넘겨받지 않습니다.
+
 
 에이전트 이름은 실행하는 도구나 모델이 아니라 **작업 슬롯**입니다. Claude Code, Codex, Antigravity 등 모든 호스트가 같은 이름을 씁니다:
 
@@ -220,11 +254,13 @@ A, B, C, ... Z, AA, AB, ... ZZ
 ```markdown
 ### Agent: A
 - Current host: Claude Code
+- Current user: kim
 - Current thread: H-A-04
 ...
 
 ### Agent: B
 - Current host: Codex
+- Current user: lee
 - Current thread: H-B-02
 ...
 ```
@@ -344,6 +380,8 @@ flowchart LR
     R -->|CHALLENGED| C[CHALLENGED]
     H -->|작성자가 근거 보강| P
     C -->|작성자가 수정| P
+    P -.->|"다른 호스트 없음,<br/>대체 방식 same-host"| F["같은 호스트 검토<br/>(Codex 세션)"]
+    F -.->|CLOSED| V
 ```
 
 `Cross-check` 상태:
@@ -369,6 +407,7 @@ flowchart LR
 ```markdown
 ### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
+- User: kim
 - Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
 - Result: duplicates explain most of the gap; see D-A-003 and the review on D-B-014
 - Artifacts: experiments/e027_dedup_groups.py; outputs/e027.csv
@@ -517,6 +556,8 @@ python scripts/validate_release.py
 - 에이전트 이름은 `A`-`Z`, `AA`-`ZZ`이고, ID는 `H-<Agent>-NN`과 `D-<Agent>-NNN` 형식을 따름.
 - 모든 README가 언어 전환 링크를 갖고, 상대 링크가 실제로 존재하며, 같은 이미지와 코드 블록 구조를 유지함.
 - 실제 예시의 `agents.md`가 현재 초기화 스크립트가 만드는 내용과 같음.
+- 수집기, 리뷰어, 적재 한도, 대체 방식 설정을 검사하고, 직접 고친 설정은 `--reconfigure`로 적용됨.
+- 모든 플랫폼 모드(`single`, `multi`, `adaptive`) × git 모드(`push`, `commit`, `off`) 조합이 깨끗한 `agents.md`를 만들고 점검기를 통과하며, `--reconfigure`는 손으로 고친 내용을 덮어쓰지 않음.
 - 초기화 스크립트는 LF로 파일을 쓰고, 중복되거나 표준이 아닌 에이전트 이름을 거부하며, 기존 프로젝트 파일을 덮어쓰지 않음.
 
 # 라이선스

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
   <title id="title">Slots and cross-host verification</title>
-  <desc id="desc">Agent slots A, B, and C record their current host in handoff.md. A on Claude Code cross-checks discovery D-B-003 made on Codex and marks it VERIFIED. B on Codex has claimed the review of D-A-002 made on Claude Code. Slot C is released and free for reuse.</desc>
+  <desc id="desc">Agent slots A, B, and C record their current host and user in handoff.md: A is kim on Claude Code, B is lee on Codex. A on Claude Code cross-checks discovery D-B-003 made on Codex and marks it VERIFIED. B on Codex has claimed the review of D-A-002 made on Claude Code. Slot C is released and free for reuse.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0B1B33"/>
@@ -25,17 +25,17 @@
 
     <rect x="48" y="156" width="360" height="84" rx="14" fill="#132F57" stroke="#2A5384"/>
     <text x="74" y="208" fill="#FFFFFF" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">A</text>
-    <text x="190" y="190" fill="#8FA9CC" font-size="13">Current host</text>
-    <text x="190" y="216" fill="#E8875A" font-size="19" font-weight="700">Claude Code</text>
+    <text x="190" y="190" fill="#8FA9CC" font-size="13">Current host · user</text>
+    <text x="190" y="216" font-size="19" font-weight="700"><tspan fill="#E8875A">Claude Code</tspan><tspan fill="#CFE0F5" font-weight="400"> · kim</tspan></text>
 
     <rect x="48" y="256" width="360" height="84" rx="14" fill="#132F57" stroke="#2A5384"/>
     <text x="74" y="308" fill="#FFFFFF" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">B</text>
-    <text x="190" y="290" fill="#8FA9CC" font-size="13">Current host</text>
-    <text x="190" y="316" fill="#3FC1A0" font-size="19" font-weight="700">Codex</text>
+    <text x="190" y="290" fill="#8FA9CC" font-size="13">Current host · user</text>
+    <text x="190" y="316" font-size="19" font-weight="700"><tspan fill="#3FC1A0">Codex</tspan><tspan fill="#CFE0F5" font-weight="400"> · lee</tspan></text>
 
     <rect x="48" y="356" width="360" height="84" rx="14" fill="#0F2546" stroke="#3B5578" stroke-dasharray="7 6"/>
     <text x="74" y="408" fill="#7F93B0" font-size="28" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">C</text>
-    <text x="190" y="390" fill="#8FA9CC" font-size="13">Current host</text>
+    <text x="190" y="390" fill="#8FA9CC" font-size="13">Current host · user</text>
     <text x="190" y="416" fill="#7F93B0" font-size="19" font-weight="700">released</text>
     <text x="388" y="404" fill="#7F93B0" font-size="13" text-anchor="end">free → reused next</text>
 
@@ -65,6 +65,6 @@
 
     <!-- Rules strip -->
     <rect x="48" y="472" width="1104" height="56" rx="14" fill="#0F2546" stroke="#2A5384"/>
-    <text x="600" y="506" fill="#D6E6FA" font-size="16" text-anchor="middle">Same host never re-reviews   ·   One cross-host review is enough   ·   Released slots are reused before new ones</text>
+    <text x="600" y="506" fill="#D6E6FA" font-size="16" text-anchor="middle">One cross-host review is enough   ·   Same host reviews only as a fallback   ·   Released slots are reused first</text>
   </g>
 </svg>

@@ -16,6 +16,54 @@ handoff.md       # event log (who, when, which host, artifacts) and each slot's 
 
 Do not create per-agent continuity folders, mode files, or a separate process file. Create `docs/` only when older handoff history becomes too large to scan comfortably.
 
+## 0. Before you start: ask, then set up
+
+### A new project (no `agents.md` yet)
+
+Ask the user these six questions before creating any file, unless the request already answers them. Ask them together, in one message, and offer the defaults so the user can simply accept them:
+
+1. **Your name** — the name recorded for you in the files, so several people can work on one project (for example `kim`, `user1`). One word of letters, digits, `-`, or `_`.
+2. **Platforms** — which hosts will work on this project, and how:
+   - `multi`: several platforms at the same time (for example Claude Code and Codex). Discoveries are cross-checked by a different host; cross-host take-over by judgment is allowed.
+   - `single`: one platform only. Cross-checks are done by a different slot on the same host.
+   - `adaptive`: it depends on the day. Prefer a different host for cross-checks and fall back to a different slot when no other host is active.
+3. **Git sync** — how the four coordination files are shared:
+   - `push`: commit and push automatically after each linked change and at session close. Needed when people or sessions work on different machines.
+   - `commit`: local commits only, never pushed.
+   - `off`: no git; sessions share the files on this machine only.
+4. **Plan collector** — run a sub-agent that gathers diverse research candidates into `plan.md`?
+   - `off` (default), or a platform and model, for example `Claude Code/sonnet` or `Codex/sol` (models such as `opus`, `sonnet`, `fable`, `astra`, `sol`, `luna`).
+   - Queue limits: stop collecting at N plan items and resume at M (default `50,5`).
+5. **Reviewer** — hand cross-checks of finished work to a reviewer sub-agent so the main agents keep experimenting? `off` (default), or a platform and model, for example `Codex/sol`.
+6. **Cross-check fallback** — when the queue runs out and only cross-checks that need another platform remain: `same-host` (run them with a same-platform model) or `wait` (leave them for the other platform). Default: `wait` for `multi`, `same-host` otherwise.
+
+Then initialize with the answers:
+
+```bash
+python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --user kim --platform multi --platforms "Claude Code, Codex" --git push --collector "Claude Code/sonnet" --queue-limits 50,5 --reviewer "Codex/sol" --fallback wait
+```
+
+The settings are written to `agents.md` under `## Project settings`, and `agents.md` is generated to match them — a `single` project gets no cross-host rules, a `push` project gets the git sync steps. Read it before working.
+
+### An existing project
+
+- Read `## Project settings` in `agents.md`; do not ask the setup questions again.
+- Ask only for the user's name, unless they already gave it in this session. If `Users` in `handoff.md` lists exactly one name, you may ask to confirm it instead (`Continue as kim?`).
+- If the name is new, add it to `Users` in Shared state.
+
+### Changing settings
+
+The settings lines in `agents.md` are meant to be edited, by the user or by you on the user's request:
+
+- `Plan collector`, `Plan queue limits`, `Reviewer`, and `Cross-check fallback` take effect immediately; every session reads them at start.
+- `Platform mode`, `Platforms`, and `Git sync` change the generated rules. After editing those lines, regenerate the rules — or pass the new values as flags:
+
+```bash
+python <skill-root>/scripts/init_research_orchestrator.py . --reconfigure --platform adaptive --git push
+```
+
+`--reconfigure` rewrites only `agents.md`, keeps every setting you do not pass, and refuses when the rules themselves were edited by hand (add `--force` after saving those edits). The consistency check notes rules that no longer match their settings. Log any settings change as a handoff event with heading `none`.
+
 ## 1. Identify the current agent
 
 An agent name is a **work slot**, not the identity of the tool or model running it. The same slot can be continued by Claude Code, Codex, Antigravity, or any other host.
@@ -35,6 +83,8 @@ A, B, C, ... Z, AA, AB, ... ZZ
   - `Host` in each completed-log event (`handoff.md`) says which host did that step.
   - `Host` in each discovery (`discoveries.md`) says which host made it; a different host cross-checks it (section 5).
 - Continue the same thread with the same agent name, even when a different host resumes it; only `Current host` changes.
+- A **user** is the person running the session (`kim`, `user1`); see section 0. Record it as `Current user` next to `Current host` in your active handoff section, and as `User` in every event. Reset `Current user` to `none` when you release the slot. User names are never slot names, host names, or model names.
+- Never take over an item from a slot that another user is actively running; a released slot of another user may be a take-over source under the usual rules (section 4).
 - A slot is **free** when its `Current host` is `unassigned` or `released`, and **taken** otherwise. Liveness is never guessed; it is read from that line.
 - If the user assigns a name, use it. Otherwise read only the `Current host` line of each agent section in `handoff.md` and take the first free slot in order (`A`, `B`, `C`, ...). Skip a free slot that still holds plan items left by a different host — those stay with that host (section 4) unless the user assigns you the slot. If none is free, create the next unused letter: add its `## Agent:` plan section, its `### Agent:` handoff section, and its name under `Active agent(s)`.
 - When you take or resume a slot, set `Current host: <your host>` first. When you close the session, set `Current host: released` (section 10). A slot left taken by a crashed session may be reclaimed only when the user says so.
@@ -63,7 +113,7 @@ Four narrow exceptions allow looking across other agents' sections:
 
 - A resource dispatcher, or a session choosing a take-over item, may inspect only task metadata: task ID, owner, priority, cost, information, resource, parallel-safety, and `Other` executor.
 - Before adding a plan item, any agent may scan only item headings and `Hypothesis` lines to avoid queueing a duplicate (section 3).
-- When choosing a slot or a take-over source, a session may read only the `Current host` and `Current thread` lines of each agent's handoff section (sections 1 and 4).
+- When choosing a slot or a take-over source, a session may read only the `Current host`, `Current user`, and `Current thread` lines of each agent's handoff section (sections 1 and 4).
 - When taking over an item (same host, or cross-host by judgment), a session reads that one item in full once it has chosen it by metadata (section 4).
 
 Do not read another active agent's detailed evidence, scores, next tests, or resumable state merely for coordination.
@@ -172,8 +222,24 @@ Before going idle, look for work in this order:
 2. **Cross-checks** — claim a `PENDING` discovery from a different host (section 5).
 3. **Take over from a same-host slot** — see below.
 4. **Cross-host take-over by judgment** — only one promising item, under the conditions below.
-5. **New hypotheses** — derive zero or more items from discoveries (section 3 checks apply).
-6. **Nothing worthwhile left** — record this in your active handoff section, set `Current host: released`, and stop. Do not invent low-value work to stay busy.
+5. **Cross-check fallback** — if `Cross-check fallback` is `same-host`, review a `PENDING` discovery from your own host (section 5); if it is `wait`, leave those for the other host.
+6. **New work** — if `Plan collector` is on and the queue is at or below its resume limit, start a collection round (below); otherwise derive zero or more items from discoveries yourself (section 3 checks apply).
+7. **Nothing worthwhile left** — record this in your active handoff section, set `Current host: released`, and stop. Do not invent low-value work to stay busy.
+
+In a `single` project, steps 4 and 5 do not apply.
+
+#### Plan collector
+
+`Plan collector` in `agents.md` is `off` or `on — <platform> / <model>`; `Plan queue limits` reads `stop at <N>, resume at <M>`. When it is on, a sub-agent keeps the queue supplied with diverse research candidates:
+
+1. **When** — at session start and after finishing each item, count plan items across all sections. Start a round when the count is at or below the resume limit and `Plan collection` in Shared state reads `idle`.
+2. **Who** — only a session on the collector's platform, because it launches a sub-agent with the collector's model (in Claude Code, the Agent tool with the model set). Other sessions skip collection.
+3. **Mark** — set `Plan collection: running — <your agent> (since YYYY-MM-DD HH:MM)` before starting, so no second round starts.
+4. **Collect** — give the sub-agent all discoveries, every plan item's heading and `Hypothesis`, the project goal, and any sources the user allows. Accept only candidates that are full plan items with `Sources`, `Evidence`, `Improvement`, and honest scores, and that pass the duplicate check. Prefer diversity.
+5. **Add** — put accepted items in your own section under your own IDs until the count reaches the stop limit or no worthwhile candidates remain.
+6. **Finish** — set `Plan collection: idle` and log one event with heading `none`: `Action: plan collection round (Claude Code / sonnet): added H-A-12, H-A-13`, with those IDs under `New plan items` and `Discovery updates: none — collection, no experiment`.
+
+Between rounds nothing is collected, so the queue drains to the resume limit before the next round. A `running` marker left by a released slot is stale; clear it and log the cleanup.
 
 #### Take over an item from a same-host slot
 
@@ -181,7 +247,7 @@ When your own queue is empty, you may take over a queued item from another slot 
 
 Eligible sources:
 
-- a slot whose `Current host` equals your host (an active same-host session), or
+- a slot whose `Current host` equals your host and that your own user is running (an active same-host session of yours), or
 - a `released` or `unassigned` slot whose most recent completed-log event was made by your host, or that has no completed-log events at all (items seeded by the user carry no host history, so any host may take them).
 
 Items left by a different host in a released slot normally stay with that host. They can move only through a cross-host take-over by judgment (below), or when the user says so.
@@ -200,7 +266,7 @@ The original owner, on its next re-read of its own section, finds the item gone 
 
 #### Cross-host take-over by judgment
 
-By default a different host's items stay with that host, so each host keeps an independent line of reasoning. As an exception, you may take over **one** item queued by a different host when your judgment is that it is clearly worth running now. All of these must hold:
+This applies only when `Platform mode` is `multi` or `adaptive`; a `single` project has one host. By default a different host's items stay with that host, so each host keeps an independent line of reasoning. As an exception, you may take over **one** item queued by a different host when your judgment is that it is clearly worth running now. All of these must hold:
 
 1. **Nothing closer is left**: your own queue, eligible cross-checks, and same-host items are exhausted (steps 1–3 above).
 2. **The source slot is idle**: it is `released` or `unassigned`. Never take from a slot whose `Current host` is an active session on another host, and never an item in the owner's `Current thread` or under an `Active compute` claim.
@@ -218,6 +284,17 @@ The user can lower or raise the Priority floor, forbid cross-host take-overs, or
 ## 5. Use `discoveries.md` as shared knowledge with cross-host verification
 
 Every agent reads the whole file. Verification is per **host**, not per agent: a discovery made on one host is checked **once** by a different host. Sessions on the same host share the same blind spots, so they do not re-review each other, and ten sessions never have to review the same finding ten times.
+
+How this applies depends on `Platform mode` in `agents.md` (section 0):
+
+- `multi`: always a different host.
+- `single`: there is only one host, so a different **slot** reviews, and every review reason starts with `same host —`. Cross-host take-over does not apply.
+- `adaptive`: a different host whenever one is available; otherwise `Cross-check fallback` decides.
+
+Two more settings shape cross-checks:
+
+- **Reviewer** (`off` or `on — <platform> / <model>`). When on, a session on the reviewer's platform hands each eligible `PENDING` discovery to a reviewer sub-agent with that model, so the main agents keep experimenting. The session still claims the review under its own slot and writes the line under its own host and slot, naming the model first in the reason: `Codex (B): CLOSED — reviewer sol — reproduced with ...`. All eligibility rules below still apply.
+- **Cross-check fallback** (`wait` or `same-host`). When a discovery needs a different host and none is active: `wait` leaves it `PENDING` for that host; `same-host` lets a session on the same host review it once its own queue runs out — with a different model when possible — starting the reason with `same host —`. A session on another host may add a second review later.
 
 Use this exact shape:
 
@@ -315,7 +392,7 @@ Do not launch low-value experiments merely to keep hardware busy. Priority decid
 - Active compute: GPU — A (H-A-04, since 2026-10-05 18:20); CPU — B (H-B-03, since 2026-10-05 18:05)
 ```
 
-Use `none` when nothing heavy is running. The resource is `CPU`, `GPU`, or `Other` (a remote executor such as Kaggle). Work that needs no heavy compute — reading, reviewing, writing code, small smoke tests — needs no claim.
+Use `none` when nothing heavy is running. The resource is `CPU`, `GPU`, or `Other` (a remote executor such as Kaggle). When sessions run on more than one machine — several users, or `Git sync: push` across computers — add the machine to the resource: `GPU@kim-desktop — A (H-A-04, since 2026-10-05 18:20)`. Only claims on your own machine block you. Work that needs no heavy compute — reading, reviewing, writing code, small smoke tests — needs no claim.
 
 1. Before launching, re-read `handoff.md` and check **both** the claims and the real usage on the machine (for example `nvidia-smi` for GPU memory and load, the task manager or `top` for CPU and RAM). Two sessions can both see an idle GPU; the claim is what stops them from launching together.
 2. Add your claim and launch in the same step.
@@ -345,7 +422,7 @@ Do not release your slot while a job you launched is still running: keep `Curren
 | --- | --- | --- |
 | Claim, numbers, interpretation | `discoveries.md` (`Finding`, `Evidence`, `Implication`) | handoff `Result` points to the discovery ID |
 | Verification state and reasons | `discoveries.md` (`Cross-check`, `Reviews`) | handoff `Review verdict` names the ID and verdict only |
-| Who, when, which host, what was done | `handoff.md` event | — |
+| Who, when, which host and user, what was done | `handoff.md` event | — |
 | Files produced or changed | `handoff.md` `Artifacts` (paths only) | discovery `Evidence` cites the files that reproduce the claim |
 | What to test next | `plan.md` (`Next test`) | handoff names the plan item ID |
 | Where a slot stands right now | `handoff.md` active section | — |
@@ -355,6 +432,7 @@ Keep each slot's resume point in its active handoff section:
 ```markdown
 ### Agent: B
 - Current host: Codex
+- Current user: lee
 - Current thread: H-B-03
 - Resumable state: ...
 - Blocker: none
@@ -370,6 +448,7 @@ Put completed work and review events in the shared log, append-only. Use this ev
 ```markdown
 ### YYYY-MM-DD HH:MM — A — H-A-01
 - Host: Claude Code | Codex | Antigravity | <other>
+- User: <user name>
 - Action: ...
 - Result: <one line>; see <discovery ID>
 - Artifacts: <paths> / none
@@ -401,6 +480,19 @@ Before changing `plan.md`, `discoveries.md`, or `handoff.md`:
 
 This is mandatory when multiple sessions may edit the repository concurrently.
 
+### Sync through git
+
+Follow `Git sync` in `agents.md` (section 0):
+
+- `off` — do not run git for the coordination files. Sessions share state only through the files on this machine.
+- `commit` — right after each linked change (the table below) and at session close, commit the coordination files you changed: `git add` only the changed files among `agents.md`, `plan.md`, `discoveries.md`, `handoff.md`, and `docs/`, then `git commit -m "ro(<agent>/<user>): <short action>"`. Never push.
+- `push` — as `commit`, and also:
+  1. run `git pull --rebase` before editing a shared file and before launching a heavy job, so you see the latest items, claims, and slots;
+  2. push right after each commit;
+  3. if the push is rejected, `git pull --rebase`, keep both sides of any conflict in the coordination files (never drop another agent's lines), and push again; if a conflict touches anything else, stop and ask the user.
+
+In every mode: never force-push or rewrite history; commit only the coordination files unless the user asks to include code or results; never commit secrets, credentials, or large data. Several users on different machines need `push`; without it they cannot see each other's slots, items, or compute claims.
+
 ### Change linked files in the same step
 
 Some changes touch more than one file. Make all parts of the change before doing anything else, so no file ever describes a state the others do not:
@@ -410,8 +502,10 @@ Some changes touch more than one file. Make all parts of the change before doing
 | Finish an item | discovery → handoff event → follow-up items → remove the item from `plan.md` |
 | Take over an item (same host or cross-host) | move the block in `plan.md` → handoff event, with the reason for a cross-host take-over |
 | Add or create a slot | `## Agent:` plan section + `### Agent:` handoff section + `Active agent(s)` |
+| A new user's first session | add the name to `Users` in Shared state |
 | New best result | discovery whose `Implication` starts with `new current best:` → `Current best` in Shared state citing it |
 | Launch a heavy job | claim in `Active compute` → launch |
+| Plan collection round | `Plan collection: running — …` → add items → `Plan collection: idle` → handoff event |
 | Heavy job ends | record the result (or the failure) → remove the claim from `Active compute` |
 | Queue an item | add it to `plan.md`; any handoff line that names it comes after, never before |
 
@@ -437,6 +531,7 @@ It reports, among other things:
 - a referenced discovery that does not exist;
 - shared-state lines in `plan.md`, or a `Current best` that is missing its citation or is stale;
 - `Active compute` claims in the wrong format, held by a released slot, or for an item no longer in `plan.md`;
+- invalid settings (collector, reviewer, queue limits, fallback), a `Plan collection` marker left by a released slot, and rules that no longer match an edited `Platform mode` or `Git sync`;
 - `Cross-check` states that do not match their review lines, and claims held by a released slot.
 
 Fix what you own: your own sections, structure (a missing empty section for a listed agent), and Shared state values with a cited discovery. Never invent or delete another agent's items. For a problem in another agent's section, add a line under `Open consistency issues` in Shared state (`- H-B-01 named as queued for B but missing from plan.md (found by A)`); the owner, or the user, resolves it and removes the line. Do not start new work while the checker reports a problem in your own sections. If a report is wrong, record it under `Open consistency issues` with `(disputed — <why>)` and continue; the user settles it.
@@ -450,17 +545,18 @@ Before ending meaningful work:
 3. Finish or release any cross-check you claimed (`REVIEWING` → verdict, or back to `PENDING`).
 4. Update your active handoff section: `Resumable state` and `Next action`.
 5. Run the consistency check and fix your own problems.
-6. Remove your `Active compute` claims for jobs that have ended. If a job you launched is still running, keep its claim and your `Current host`, describe the job in `Resumable state`, and stop here without releasing.
-7. Otherwise set `Current host: released` so the slot is visibly free for the next session.
+6. Remove your `Active compute` claims for jobs that have ended. If a job you launched is still running, keep its claim, your `Current host`, and your `Current user`, describe the job in `Resumable state`, and go to step 8 without releasing.
+7. Otherwise set `Current host: released` and `Current user: none` so the slot is visibly free for the next session.
+8. If `Git sync` is `commit` or `push`, commit the coordination files you changed; with `push`, push them too (section 9).
 
 ## 11. Initialize a project
 
 Run:
 
 ```bash
-python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name"
-python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --agents 2
-python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --agents A,B,C
+python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --user kim --platform single --platforms "Claude Code" --git off
+python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --agents 2 --user kim --platform multi --platforms "Claude Code, Codex" --git push
+python <skill-root>/scripts/init_research_orchestrator.py . -n "Project Name" --agents A,B,C --user kim --platform adaptive --git commit
 ```
 
-`--agents` takes either a count (`2` → `A, B`) or a comma-separated list of allowed names. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files. To add an agent to an existing project, add its `## Agent: <name>` plan section, its `### Agent: <name>` handoff section, and its name under `Active agent(s)`.
+Ask the setup questions first (section 0). Without flags the defaults are `--platform adaptive`, `--platforms "Claude Code, Codex"`, `--git off`, `--collector off`, `--queue-limits 50,5`, `--reviewer off`, `--fallback` (`wait` for `multi`, `same-host` otherwise), and no user yet. `--agents` takes either a count (`2` → `A, B`) or a comma-separated list of allowed names. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files. To add an agent to an existing project, add its `## Agent: <name>` plan section, its `### Agent: <name>` handoff section, and its name under `Active agent(s)`.

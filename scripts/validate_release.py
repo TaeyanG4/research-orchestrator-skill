@@ -37,7 +37,7 @@ PLAN_FIELDS = [
 ]
 DISCOVERY_FIELDS = ["Source", "Host", "Cross-check", "Finding", "Evidence", "Implication", "Reviews"]
 HANDOFF_FIELDS = [
-    "Host", "Action", "Result", "Artifacts", "Discovery updates",
+    "Host", "User", "Action", "Result", "Artifacts", "Discovery updates",
     "Review verdict", "Resource", "Other executor", "New plan items",
 ]
 
@@ -49,7 +49,10 @@ READMES = {
 }
 EXAMPLE = ROOT / "examples" / "cv-leakage-study"
 # Must match how the example was generated.
-EXAMPLE_INIT_ARGS = ["-n", "CV Leakage Study", "--agents", "3"]
+EXAMPLE_INIT_ARGS = ["-n", "CV Leakage Study", "--agents", "3", "--user", "kim",
+                     "--platform", "multi", "--platforms", "Claude Code, Codex", "--git", "push",
+                     "--collector", "Claude Code/sonnet", "--queue-limits", "50,5",
+                     "--reviewer", "Codex/sol", "--fallback", "wait"]
 
 DOCS = [
     *(ROOT / name for name in READMES),
@@ -328,6 +331,8 @@ def run_init(target: Path, *args: str, name: str | None = "Validation Project") 
         [sys.executable, str(initializer), str(target), *name_args, *args],
         text=True,
         capture_output=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
 
@@ -372,6 +377,86 @@ def check_initializer(errors: list[str]) -> None:
             if result.returncode == 0 or any(target.iterdir()):
                 errors.append(f"initializer accepted invalid --agents '{bad}'")
 
+        bad_settings = {
+            "user with a space": ["--user", "kim lee"],
+            "user named like a slot": ["--user", "B"],
+            "user named like a host": ["--user", "Codex"],
+            "single without --platforms": ["--platform", "single"],
+            "single with two platforms": ["--platform", "single", "--platforms", "Claude Code, Codex"],
+            "multi with one platform": ["--platform", "multi", "--platforms", "Codex"],
+            "unknown git mode": ["--git", "sometimes"],
+            "unknown platform mode": ["--platform", "both"],
+            "collector on a platform not listed": ["--platforms", "Claude Code, Codex", "--collector", "Gemini/pro"],
+            "collector without a model": ["--collector", "Claude Code"],
+            "reviewer on a platform not listed": ["--platform", "single", "--platforms", "Codex", "--reviewer", "Claude Code/opus"],
+            "queue limits with resume >= stop": ["--queue-limits", "5,50"],
+            "unknown fallback": ["--fallback", "sometimes"],
+        }
+        for label, args in bad_settings.items():
+            target = Path(tmp) / f"bad-{len(list(Path(tmp).iterdir()))}"
+            target.mkdir()
+            result = run_init(target, *args)
+            if result.returncode == 0 or any(target.iterdir()):
+                errors.append(f"initializer accepted invalid settings ({label})")
+
+
+def check_settings_modes(errors: list[str]) -> None:
+    """Every platform/git combination renders cleanly and passes the checker; --reconfigure is safe."""
+    combos = [("single", "Claude Code"), ("multi", "Claude Code, Codex"), ("adaptive", "Claude Code, Codex")]
+    with tempfile.TemporaryDirectory() as tmp:
+        for mode, platforms in combos:
+            for git in ("push", "commit", "off"):
+                target = Path(tmp) / f"{mode}-{git}"
+                target.mkdir()
+                result = run_init(target, "--user", "kim", "--platform", mode, "--platforms", platforms, "--git", git)
+                if result.returncode != 0:
+                    errors.append(f"initializer ({mode}/{git}) failed: {result.stderr.strip()}")
+                    continue
+                agents = (target / "agents.md").read_text(encoding="utf-8")
+                if "{{" in agents or "\n\n\n" in agents:
+                    errors.append(f"agents.md ({mode}/{git}) has leftover template markers or blank-line runs")
+                if (mode == "single") == ("Cross-host take-over by judgment" in agents):
+                    errors.append(f"agents.md ({mode}) has the wrong cross-host take-over rules")
+                if f"- Platform mode: {mode}" not in agents or f"- Git sync: {git}" not in agents:
+                    errors.append(f"agents.md ({mode}/{git}) does not record its settings")
+                checked = run_checker(target)
+                if checked.returncode != 0:
+                    errors.append(f"check_project.py fails on a fresh {mode}/{git} project:\n" + checked.stdout.strip())
+
+        target = Path(tmp) / "single-off"
+        result = run_init(target, "--reconfigure", "--platform", "multi", "--platforms", "Claude Code, Codex",
+                          "--git", "push", name=None)
+        agents = (target / "agents.md").read_text(encoding="utf-8")
+        if result.returncode != 0 or "- Platform mode: multi" not in agents or "- Git sync: push" not in agents:
+            errors.append(f"--reconfigure did not switch single/off to multi/push: {result.stderr.strip()}")
+        with (target / "agents.md").open("a", encoding="utf-8") as handle:
+            handle.write("\nHAND-EDIT\n")
+        refused = run_init(target, "--reconfigure", "--git", "off", name=None)
+        if refused.returncode == 0 or "HAND-EDIT" not in (target / "agents.md").read_text(encoding="utf-8"):
+            errors.append("--reconfigure overwrote a hand-edited agents.md without --force")
+        forced = run_init(target, "--reconfigure", "--git", "off", "--force", name=None)
+        if forced.returncode != 0 or "- Git sync: off" not in (target / "agents.md").read_text(encoding="utf-8"):
+            errors.append("--reconfigure --force did not rewrite agents.md")
+
+        # Direct edits: runtime settings apply at once; mode/git edits are applied by --reconfigure.
+        target = Path(tmp) / "multi-push"
+        agents_md = target / "agents.md"
+        text = agents_md.read_text(encoding="utf-8")
+        text = text.replace("- Plan collector: off", "- Plan collector: on — Codex / sol")
+        text = text.replace("- Platform mode: multi", "- Platform mode: single").replace(
+            "- Platforms: Claude Code, Codex", "- Platforms: Codex")
+        agents_md.write_text(text, encoding="utf-8", newline="\n")
+        stale = run_checker(target)
+        if "do not match its Platform mode" not in stale.stdout:
+            errors.append("check_project.py did not note rules that are out of sync with edited settings")
+        applied = run_init(target, "--reconfigure", name=None)
+        text = agents_md.read_text(encoding="utf-8")
+        if (applied.returncode != 0 or "Cross-host take-over by judgment" in text
+                or "- Plan collector: on — Codex / sol" not in text or "- Platform mode: single" not in text):
+            errors.append(f"--reconfigure did not apply directly edited settings: {applied.stderr.strip()}")
+        if run_checker(target).returncode != 0:
+            errors.append("check_project.py fails after applying directly edited settings")
+
 
 def main() -> int:
     # Error messages can quote CJK README text; never crash on a legacy console code page.
@@ -386,6 +471,7 @@ def main() -> int:
         check_doc(path, errors)
     check_example(errors)
     check_initializer(errors)
+    check_settings_modes(errors)
 
     if errors:
         print("VALIDATION: FAIL")
@@ -404,6 +490,9 @@ def main() -> int:
     print("- real handoff events list new plan items and discovery updates or give 'none - <reason>'")
     print("- the worked example matches the current template and passes check_project.py")
     print("- check_project.py passes on a freshly initialized project")
+    print("- every platform mode (single/multi/adaptive) x git mode (push/commit/off) renders and passes")
+    print("- --reconfigure switches settings, applies directly edited settings, and refuses to overwrite hand-edited rules")
+    print("- collector, reviewer, queue limits, and fallback settings are validated")
     print("- discoveries record Host and Cross-check; reviews come from a different host")
     print("- Resource values are CPU/GPU/EITHER (plan) and CPU/GPU/Other/none (handoff)")
     print("- agent names and IDs follow A-Z, AA-ZZ and H-<Agent>-NN / D-<Agent>-NNN")

@@ -37,6 +37,8 @@ flowchart LR
 
     D -->|0..N follow-ups| H
     H --> P --> W --> E --> D
+    C["Plan collector<br/>sub-agent"] -->|"queue at or below<br/>the resume limit"| P
+    R["Reviewer<br/>sub-agent"] -->|cross-check| D
     P --> O
     E --> O
     D --> O
@@ -48,7 +50,7 @@ A discovery can generate **zero, one, or many** new hypotheses. One hypothesis c
 
 ```mermaid
 flowchart TD
-    A[AGENTS.md<br/>rules, scoring, review, routing]
+    A[AGENTS.md<br/>settings, rules, scoring, review, routing]
     P[PLAN.md<br/>active unfinished work only]
     D[DISCOVERIES.md<br/>shared reusable findings]
     H[HANDOFF.md<br/>operational ledger]
@@ -187,23 +189,55 @@ Use `/skills` in Antigravity CLI to confirm discovery.
 
 # Quick start
 
-Initialize the four project files:
+On first use, the agent asks three questions — your name, which platforms, and git sync (see *Setup questions* below) — and then initializes the project. You can also run the initializer yourself. One person on one platform, no git:
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --user kim --platform single --platforms "Claude Code" --git off
 ```
 
-Start with multiple independent agents (`2` → `A, B`):
+Two agents (`2` → `A, B`) on two platforms at once, shared through git:
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2 --user kim --platform multi --platforms "Claude Code, Codex" --git push --collector "Claude Code/sonnet" --queue-limits 50,5 --reviewer "Codex/sol" --fallback wait
 ```
 
 `--agents` also accepts an explicit list such as `A,B,C`. The initializer rejects duplicate or non-standard names, creates missing files only, and never overwrites existing project files.
 
 Then run `python <installed-skill>/scripts/check_project.py .` at every session start and before closing (see *Consistency check* below).
 
+## Setup questions
+
+| Question | Options | What changes |
+| --- | --- | --- |
+| Your name | one word, e.g. `kim`, `user1` | Recorded as `Users`, `Current user`, and each event's `User`, so several people can share one project |
+| Platforms | `multi` — several platforms at once (e.g. Claude Code and Codex)<br>`single` — one platform<br>`adaptive` — depends on the day | `agents.md` is generated to match: `single` drops the cross-host rules and cross-checks between slots; `multi` cross-checks between hosts; `adaptive` prefers another host and falls back to another slot |
+| Git sync | `push` — commit and push automatically<br>`commit` — local commits only<br>`off` — no git | `push` adds `git pull --rebase` before edits and a commit + push after each linked change and at session close. Needed when people or sessions work on different machines |
+| Plan collector | `off`, or a platform/model such as `Claude Code/sonnet`, `Codex/sol`; plus queue limits (default `50,5`) | A sub-agent gathers diverse research candidates into `plan.md`: it starts when the queue falls to the resume limit (5) and stops at the stop limit (50) |
+| Reviewer | `off`, or a platform/model such as `Codex/sol` | A reviewer sub-agent does the cross-checks of finished work, so the main agents keep experimenting |
+| Cross-check fallback | `wait` or `same-host` | When the queue runs out and only cross-checks needing another platform remain: leave them, or run them with a same-platform model (`same host —`) |
+
+<p align="center">
+  <img src="assets/readme/setup.svg" alt="Six setup answers (name, platforms, git sync, plan collector, reviewer, cross-check fallback) become the Project settings in agents.md; the plan collector starts at 5 queued items and stops at 50" width="100%">
+</p>
+
+The answers are written to `## Project settings` at the top of `agents.md`, and later sessions read them instead of asking again; they ask only for the user's name. Edit those lines whenever you like: collector, queue limits, reviewer, and fallback take effect at once; after editing the platform mode, platforms, or git sync, run the following to regenerate the rules (it rewrites only `agents.md` and refuses to overwrite hand-edited rules unless `--force` is given):
+
+```bash
+python <installed-skill>/scripts/init_research_orchestrator.py . --reconfigure --platform adaptive --git push
+```
+
 ## Agent names
+
+Three names appear in every session — keep them apart:
+
+| Name | What it is | Examples |
+| --- | --- | --- |
+| Agent (slot) | A work slot | `A`, `B`, `AA` |
+| Host | The platform, not the model | `Claude Code`, `Codex` |
+| User | The person running the session | `kim`, `user1` |
+
+A session by another user is never a take-over source while that user is running it.
+
 
 An agent name is a **work slot**, not the tool or model running it. Every host — Claude Code, Codex, Antigravity — uses the same names:
 
@@ -218,11 +252,13 @@ A, B, C, ... Z, AA, AB, ... ZZ
 ```markdown
 ### Agent: A
 - Current host: Claude Code
+- Current user: kim
 - Current thread: H-A-04
 ...
 
 ### Agent: B
 - Current host: Codex
+- Current user: lee
 - Current thread: H-B-02
 ...
 ```
@@ -342,6 +378,8 @@ flowchart LR
     R -->|CHALLENGED| C[CHALLENGED]
     H -->|source adds evidence| P
     C -->|source revises| P
+    P -.->|"no other host active,<br/>fallback same-host"| F["same-host review<br/>by a Codex session"]
+    F -.->|CLOSED| V
 ```
 
 `Cross-check` states:
@@ -367,6 +405,7 @@ Rules:
 ```markdown
 ### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
+- User: kim
 - Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
 - Result: duplicates explain most of the gap; see D-A-003 and the review on D-B-014
 - Artifacts: experiments/e027_dedup_groups.py; outputs/e027.csv
@@ -515,6 +554,8 @@ A release should pass all of these checks:
 - Agent names are `A`-`Z` or `AA`-`ZZ`; IDs follow `H-<Agent>-NN` and `D-<Agent>-NNN`.
 - Every README has the language switcher, its relative links resolve, and translations keep the same images and code-block structure.
 - The worked example's `agents.md` matches what the initializer generates today.
+- Collector, reviewer, queue-limit, and fallback settings are validated, and directly edited settings are applied by `--reconfigure`.
+- Every platform mode (`single`, `multi`, `adaptive`) × git mode (`push`, `commit`, `off`) renders a clean `agents.md` that passes the checker, and `--reconfigure` refuses to overwrite hand edits.
 - Initializer writes LF files, rejects duplicate or non-standard agent names, and never overwrites existing project files.
 
 # License

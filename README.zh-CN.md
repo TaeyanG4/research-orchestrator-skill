@@ -39,6 +39,8 @@ flowchart LR
 
     D -->|0~N 个后续| H
     H --> P --> W --> E --> D
+    C["计划收集器<br/>子代理"] -->|"队列降到<br/>恢复下限时"| P
+    R["审查者<br/>子代理"] -->|交叉检查| D
     P --> O
     E --> O
     D --> O
@@ -50,7 +52,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[AGENTS.md<br/>规则、评分、审查、路由]
+    A[AGENTS.md<br/>设置、规则、评分、审查、路由]
     P[PLAN.md<br/>仅限进行中的工作]
     D[DISCOVERIES.md<br/>可复用的共享发现]
     H[HANDOFF.md<br/>运行记录]
@@ -189,23 +191,55 @@ Antigravity CLI 旧版/全局位置：
 
 # 快速开始
 
-初始化四个项目文件：
+首次使用时，代理会询问三个问题——你的名字、使用哪些平台、git 同步方式（见下文*设置问题*）——然后初始化项目。你也可以自己运行初始化脚本。一个人、一个平台、不用 git：
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --user kim --platform single --platforms "Claude Code" --git off
 ```
 
-以多个独立代理开始（`2` → `A, B`）：
+两个平台同时运行两个代理（`2` → `A, B`），通过 git 共享：
 
 ```bash
-python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2
+python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project" --agents 2 --user kim --platform multi --platforms "Claude Code, Codex" --git push --collector "Claude Code/sonnet" --queue-limits 50,5 --reviewer "Codex/sol" --fallback wait
 ```
 
 `--agents` 也接受 `A,B,C` 这样的显式名称列表。初始化脚本会拒绝重复或非标准的名称，只创建缺失的文件，绝不覆盖已有的项目文件。
 
 之后在每次会话开始和结束前运行 `python <installed-skill>/scripts/check_project.py .`（见下文*一致性检查*）。
 
+## 设置问题
+
+| 问题 | 选项 | 影响 |
+| --- | --- | --- |
+| 你的名字 | 一个词，例如 `kim`、`user1` | 记录在 `Users`、`Current user` 和每个事件的 `User` 中，让多人共用一个项目 |
+| 平台 | `multi` — 同时使用多个平台（例如 Claude Code 和 Codex）<br>`single` — 单一平台<br>`adaptive` — 视情况而定 | 据此生成 `agents.md`：`single` 去掉跨主机规则，由不同槽位交叉检查；`multi` 由不同主机交叉检查；`adaptive` 优先其他主机，没有时退回其他槽位 |
+| Git 同步 | `push` — 自动提交并推送<br>`commit` — 仅本地提交<br>`off` — 不使用 git | `push` 会在编辑前 `git pull --rebase`，并在每次关联变更和会话结束时提交并推送。多人或多台机器协作时需要 |
+| 计划收集器 | `off`，或平台/模型，例如 `Claude Code/sonnet`、`Codex/sol`；以及队列上下限（默认 `50,5`） | 子代理把多样的研究候选收集进 `plan.md`：队列降到恢复下限（5）时开始收集，达到停止上限（50）时停止 |
+| 审查者 | `off`，或平台/模型，例如 `Codex/sol` | 由审查子代理负责已完成工作的交叉检查，主代理继续做实验 |
+| 交叉检查回退 | `wait` 或 `same-host` | 队列用完、只剩需要其他平台验证的交叉检查时：保持不动，或用同平台模型执行（`same host —`） |
+
+<p align="center">
+  <img src="assets/readme/setup.svg" alt="六个设置问题（名字、平台、git 同步、计划收集器、审查者、交叉检查回退）的答案成为 agents.md 中的 Project settings；计划收集器在队列降到 5 个时开始，达到 50 个时停止" width="100%">
+</p>
+
+答案会写入 `agents.md` 顶部的 `## Project settings`，之后的会话直接读取这些设置，只询问用户名。这些行随时可以直接编辑：收集器、队列上下限、审查者和回退方式立即生效；修改平台模式、平台或 git 同步后，运行以下命令重新生成规则（它只重写 `agents.md`，若规则正文被手动修改，没有 `--force` 时拒绝覆盖）：
+
+```bash
+python <installed-skill>/scripts/init_research_orchestrator.py . --reconfigure --platform adaptive --git push
+```
+
 ## 代理名称
+
+每个会话中都会出现三种名称，请勿混淆：
+
+| 名称 | 含义 | 示例 |
+| --- | --- | --- |
+| 代理（槽位） | 工作槽位 | `A`、`B`、`AA` |
+| 主机 | 平台，而非模型 | `Claude Code`、`Codex` |
+| 用户 | 运行会话的人 | `kim`、`user1` |
+
+其他用户正在运行的槽位，永远不会成为接手的来源。
+
 
 代理名称是一个**工作槽位**，而不是运行它的工具或模型。所有主机——Claude Code、Codex、Antigravity——都使用相同的名称：
 
@@ -220,11 +254,13 @@ A, B, C, ... Z, AA, AB, ... ZZ
 ```markdown
 ### Agent: A
 - Current host: Claude Code
+- Current user: kim
 - Current thread: H-A-04
 ...
 
 ### Agent: B
 - Current host: Codex
+- Current user: lee
 - Current thread: H-B-02
 ...
 ```
@@ -344,6 +380,8 @@ flowchart LR
     R -->|CHALLENGED| C[CHALLENGED]
     H -->|作者补充证据| P
     C -->|作者修订| P
+    P -.->|"无其他主机，<br/>回退为 same-host"| F["同主机审查<br/>（Codex 会话）"]
+    F -.->|CLOSED| V
 ```
 
 `Cross-check` 状态：
@@ -369,6 +407,7 @@ flowchart LR
 ```markdown
 ### 2026-10-05 21:10 — A — H-A-07
 - Host: Claude Code
+- User: kim
 - Action: cross-checked D-B-014; removed exact duplicates and rebuilt group candidates
 - Result: duplicates explain most of the gap; see D-A-003 and the review on D-B-014
 - Artifacts: experiments/e027_dedup_groups.py; outputs/e027.csv
@@ -517,6 +556,8 @@ python scripts/validate_release.py
 - 代理名称为 `A`-`Z` 或 `AA`-`ZZ`；ID 遵循 `H-<Agent>-NN` 和 `D-<Agent>-NNN`。
 - 所有 README 都有语言切换链接，相对链接均存在，并保持相同的图片和代码块结构。
 - 完整示例中的 `agents.md` 与初始化脚本当前生成的内容一致。
+- 会校验收集器、审查者、队列上下限和回退设置，直接编辑的设置可由 `--reconfigure` 应用。
+- 所有平台模式（`single`、`multi`、`adaptive`）× git 模式（`push`、`commit`、`off`）的组合都能生成干净的 `agents.md` 并通过检查，`--reconfigure` 不会覆盖手动修改。
 - 初始化脚本以 LF 写入文件，拒绝重复或非标准的代理名称，且绝不覆盖已有的项目文件。
 
 # 许可证

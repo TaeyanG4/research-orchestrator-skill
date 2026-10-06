@@ -1,6 +1,6 @@
 {
   "name": "research-orchestrator",
-  "version": "4.2.0",
+  "version": "5.0.0",
   "description": "Hypothesis-driven research orchestration with scored plans, independent discovery review, adaptive workers, resource-aware execution, and durable handoffs.",
   "author": {
     "name": "TaeyanG4",

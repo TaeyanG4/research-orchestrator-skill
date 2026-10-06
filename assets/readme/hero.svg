@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title desc">
   <title id="title">Research Orchestrator</title>
-  <desc id="desc">Hypothesis-driven research across sessions and hosts, coordinated through four shared files: agents.md, plan.md, discoveries.md, and handoff.md.</desc>
+  <desc id="desc">Hypothesis-driven research across sessions, hosts, and users, coordinated through four shared files: agents.md, plan.md, discoveries.md, and handoff.md, with git sync, a plan collector, and a reviewer.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0B1B33"/>
@@ -25,19 +25,23 @@
       <path d="M1.02324 16.0125C0.681576 16.3542 0.510742 16.85 0.510742 17.5V20C0.510742 20.65 0.681576 21.1458 1.02324 21.4875C1.36491 21.8292 1.86074 22 2.51074 22H5.51074C6.16074 22 6.65658 21.8292 6.99824 21.4875C7.33991 21.1458 7.51074 20.65 7.51074 20V17.5C7.51074 16.85 7.33991 16.3542 6.99824 16.0125C6.65658 15.6708 6.16074 15.5 5.51074 15.5H2.51074C1.86074 15.5 1.36491 15.6708 1.02324 16.0125Z" fill="#9DB2FF"/>
     </g>
 
-    <text x="64" y="212" fill="#FFFFFF" font-size="52" font-weight="700">Research Orchestrator</text>
-    <text x="66" y="254" fill="#A9C1E3" font-size="21">Hypothesis-driven research across sessions and hosts</text>
+    <text x="64" y="196" fill="#FFFFFF" font-size="52" font-weight="700">Research Orchestrator</text>
+    <text x="66" y="236" fill="#A9C1E3" font-size="21">Hypothesis-driven research across sessions, hosts, and users</text>
 
     <!-- Feature chips -->
     <g font-size="15" font-weight="600">
-      <rect x="64" y="284" width="150" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
-      <text x="139" y="306" fill="#D6E6FA" text-anchor="middle">4 shared files</text>
-      <rect x="226" y="284" width="150" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
-      <text x="301" y="306" fill="#D6E6FA" text-anchor="middle">Scored queue</text>
-      <rect x="64" y="328" width="190" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
-      <text x="159" y="350" fill="#D6E6FA" text-anchor="middle">Cross-host check</text>
-      <rect x="266" y="328" width="190" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
-      <text x="361" y="350" fill="#D6E6FA" text-anchor="middle">CPU · GPU · Other</text>
+      <rect x="64" y="258" width="150" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
+      <text x="139" y="280" fill="#D6E6FA" text-anchor="middle">4 shared files</text>
+      <rect x="226" y="258" width="150" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
+      <text x="301" y="280" fill="#D6E6FA" text-anchor="middle">Scored queue</text>
+      <rect x="64" y="300" width="190" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
+      <text x="159" y="322" fill="#D6E6FA" text-anchor="middle">Cross-host check</text>
+      <rect x="266" y="300" width="190" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
+      <text x="361" y="322" fill="#D6E6FA" text-anchor="middle">CPU · GPU · Other</text>
+      <rect x="64" y="342" width="216" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
+      <text x="172" y="364" fill="#D6E6FA" text-anchor="middle">Multi-user + git sync</text>
+      <rect x="292" y="342" width="216" height="34" rx="17" fill="#16365F" stroke="#2C5A90"/>
+      <text x="400" y="364" fill="#D6E6FA" text-anchor="middle">Collector + reviewer</text>
     </g>
 
     <!-- The four files -->
@@ -45,7 +49,7 @@
       <rect x="700" y="72" width="210" height="122" rx="14" fill="#132F57" stroke="#2A5384"/>
       <rect x="700" y="72" width="6" height="122" rx="3" fill="#7E97F5"/>
       <text x="726" y="114" fill="#EAF2FF" font-size="21" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">agents.md</text>
-      <text x="726" y="146" fill="#93ACCE" font-size="15">stable rules</text>
+      <text x="726" y="146" fill="#93ACCE" font-size="15">settings + rules</text>
       <text x="726" y="170" fill="#93ACCE" font-size="15">scoring · routing</text>
 
       <rect x="930" y="72" width="210" height="122" rx="14" fill="#132F57" stroke="#2A5384"/>
@@ -64,7 +68,7 @@
       <rect x="930" y="214" width="6" height="122" rx="3" fill="#F2A93B"/>
       <text x="956" y="256" fill="#EAF2FF" font-size="21" font-weight="700" font-family="Consolas, 'SFMono-Regular', Menlo, monospace">handoff.md</text>
       <text x="956" y="288" fill="#93ACCE" font-size="15">history · next state</text>
-      <text x="956" y="312" fill="#93ACCE" font-size="15">current host per slot</text>
+      <text x="956" y="312" fill="#93ACCE" font-size="15">host · user per slot</text>
     </g>
   </g>
 </svg>
