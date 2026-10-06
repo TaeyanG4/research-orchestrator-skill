@@ -18,10 +18,6 @@
 
 AI エージェントを使った研究は、たいてい同じところで崩れます。セッションが終わると文脈が消え、2 つのセッションが同じ実験を繰り返し、あるモデルがそう言ったというだけで結論が信じられ、現在のベストが何なのか誰も正確には言えません。Research Orchestrator は 4 つのプレーンな Markdown ファイルと少数のルールでこれを解決し、どのセッション・プラットフォーム・人が入れ替わっても研究が途切れないようにします。
 
-<p align="center">
-  <img src="assets/readme/why.svg" alt="異なるプラットフォーム上の人と AI エージェントが 4 つのファイルを共有し、1 つのループを回す：仮説を集め、実験を実行し、各結果を 1 回検証し、すべての結果から学び、次のテストを計画する" width="100%">
-</p>
-
 **人とエージェントの協働**
 
 - 人と AI エージェントが同じファイルで 1 つのプロジェクトを進めます。Claude Code の `kim`、Codex の `lee`、読むことと設定の編集だけをする 3 人目が、すべて同じ状態を見ます。
@@ -518,8 +514,7 @@ research-orchestrator-skill/
 │   ├── hero.svg
 │   ├── cross-host-check.svg
 │   ├── take-over.svg
-│   ├── setup.svg
-│   └── why.svg
+│   └── setup.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md

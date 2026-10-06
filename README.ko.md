@@ -18,10 +18,6 @@
 
 AI 에이전트로 하는 연구는 대개 같은 곳에서 무너집니다. 세션이 끝나면 맥락이 사라지고, 두 세션이 같은 실험을 반복하고, 모델 하나가 그렇다고 했다는 이유로 결론을 믿고, 지금 최고 결과가 무엇인지 아무도 정확히 모릅니다. Research Orchestrator는 Markdown 파일 네 개와 적은 수의 규칙으로 이 문제를 풀어서, 어떤 세션·플랫폼·사람이 오가도 연구가 끊기지 않게 합니다.
 
-<p align="center">
-  <img src="assets/readme/why.svg" alt="서로 다른 플랫폼의 사람과 AI 에이전트가 네 파일을 공유하며 하나의 루프를 돌린다: 가설 수집, 실험 실행, 결과를 한 번 검증, 모든 결과에서 학습, 다음 실험 계획" width="100%">
-</p>
-
 **사람과 에이전트의 협업**
 
 - 사람과 AI 에이전트가 같은 파일로 한 프로젝트를 진행합니다. Claude Code의 `kim`, Codex의 `lee`, 읽고 설정만 고치는 세 번째 사람이 모두 같은 상태를 봅니다.
@@ -518,8 +514,7 @@ research-orchestrator-skill/
 │   ├── hero.svg
 │   ├── cross-host-check.svg
 │   ├── take-over.svg
-│   ├── setup.svg
-│   └── why.svg
+│   └── setup.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md

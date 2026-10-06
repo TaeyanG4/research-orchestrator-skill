@@ -16,10 +16,6 @@ It deliberately uses only **four shared Markdown files** while adding a scored h
 
 Research with AI agents usually breaks in the same places: a session ends and its context is gone, two sessions repeat the same experiment, a finding is trusted because one model said so, and nobody can tell what the current best actually is. Research Orchestrator fixes this with four plain Markdown files and a small set of rules, so the work survives any session, any platform, and any person.
 
-<p align="center">
-  <img src="assets/readme/why.svg" alt="People and AI agents on different platforms share four files and run one loop: collect hypotheses, run experiments, verify each result once, learn from every result, and plan what to test next" width="100%">
-</p>
-
 **Collaboration between people and agents**
 
 - People and AI agents work on one project through the same files: `kim` on Claude Code, `lee` on Codex, and a third person who only reads and edits settings all see the same state.
@@ -516,8 +512,7 @@ research-orchestrator-skill/
 │   ├── hero.svg
 │   ├── cross-host-check.svg
 │   ├── take-over.svg
-│   ├── setup.svg
-│   └── why.svg
+│   └── setup.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md

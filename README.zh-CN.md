@@ -18,10 +18,6 @@
 
 用 AI 代理做研究通常在同样的地方出问题：会话结束后上下文就没了，两个会话重复同一个实验，一个结论仅因某个模型这么说就被采信，没有人能说清当前最佳结果到底是什么。Research Orchestrator 用四个纯 Markdown 文件和一小组规则解决这些问题，让工作跨越任何会话、任何平台、任何人都能延续。
 
-<p align="center">
-  <img src="assets/readme/why.svg" alt="不同平台上的人和 AI 代理共享四个文件，运行同一个循环：收集假设、运行实验、对每个结果验证一次、从每个结果中学习、规划下一步测试" width="100%">
-</p>
-
 **人与代理的协作**
 
 - 人和 AI 代理通过同一组文件推进同一个项目：Claude Code 上的 `kim`、Codex 上的 `lee`，以及只阅读和编辑设置的第三个人，看到的都是同一状态。
@@ -518,8 +514,7 @@ research-orchestrator-skill/
 │   ├── hero.svg
 │   ├── cross-host-check.svg
 │   ├── take-over.svg
-│   ├── setup.svg
-│   └── why.svg
+│   └── setup.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md
