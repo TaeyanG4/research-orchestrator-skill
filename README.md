@@ -36,15 +36,14 @@ Research with AI agents usually breaks in the same places: a session ends and it
 - Loop engineering: the collect → run → verify → learn cycle, its limits, and its stop conditions are explicit and tunable.
 - Harness engineering: `check_project.py` verifies that the four files agree before a session starts new work, and `validate_release.py` keeps the skill itself consistent; both catch drift that would otherwise accumulate silently.
 
-## Where the idea comes from
+## Why multiple platforms
 
-This skill grew out of Chris Deotte's Kaggle writeup [*1st Place — The AI Relay*](https://www.kaggle.com/competitions/playground-series-s6e9/writeups/1st-place-the-ai-relay) (Playground Series S6E9, 2026): five AI agents across three generations passed one codebase to each other like a relay baton, and the baton was the notes — `plan.md` for what to try next, a progress log for what happened, `discoveries.md` for what was learned, and a closed-ideas list so the next agent would not repeat a dead end. Two of its tips shaped this skill most: *agents forget, notes remember*, and *make agents check each other* before trusting a big improvement.
+Two design choices follow from how language models behave, and they are the reason this skill runs across platforms rather than inside one.
 
-Research Orchestrator turns that practice into rules an agent can follow unattended, and adds three things the relay did not have:
-
-- **A different platform checks every finding, once.** A model tends to agree with whoever it is talking to — the user's framing, or the claim it is asked to confirm. A session on another platform shares neither the conversation nor the blind spots of the one that made the discovery, so its review is a real second opinion rather than an echo. That is why verification is per host, why a same-host review must say so, and why ten sessions on one platform never have to re-review each other.
+- **A different platform checks every finding, once.** A model tends to agree with whoever it is talking to — the user's framing, or the claim it is asked to confirm — and a session that continues the same conversation inherits that pull. A session on another platform shares neither the conversation nor the blind spots of the one that made the discovery, so its review is a real second opinion rather than an echo. That is why verification is per host, why a same-host review must say so, and why ten sessions on one platform never have to re-review each other.
 - **A relay of hypotheses, not just of code.** When Codex's hypothesis H1 becomes a discovery and Claude Code continues it, Claude's own hypothesis H2 is built on top: the pair (H1, H2) is a line of reasoning neither platform would have produced alone, and it can yield hypotheses that neither would have proposed. The same happens in the other direction. Every discovery therefore asks for zero or more follow-ups, each citing the discoveries it combines, and a take-over keeps the chain visible in the item's title.
-- **Notes that do not go stale.** Readers of the writeup pointed out that relay notes bloat, argue against a stack state that no longer exists, and close off whole areas by accident. Here `plan.md` holds only live items, every fact has one home, the current best always cites the discovery that set it, a failed idea is reopened by stating a real `Improvement` rather than banned forever, and a consistency checker reports the moment the four files disagree.
+
+Shared notes also tend to rot: they bloat, argue against a state that no longer exists, and close off whole areas by accident. Here `plan.md` holds only live items, every fact has one home, the current best always cites the discovery that set it, a failed idea is reopened by stating a real `Improvement` rather than banned forever, and a consistency checker reports the moment the four files disagree.
 
 ## Core workflow
 
