@@ -51,6 +51,8 @@ The settings are written to `agents.md` under `## Project settings`, and `agents
 - Ask only for the user's name, unless they already gave it in this session. If `Users` in `handoff.md` lists exactly one name, you may ask to confirm it instead (`Continue as kim?`).
 - If the name is new, add it to `Users` in Shared state.
 
+If `agents.md` has no `## Project settings` block, the project predates this version. Ask the six setup questions as for a new project, then run `init_research_orchestrator.py . --reconfigure --force` with the answers as flags; it regenerates only `agents.md`. Then add the lines the consistency check reports as missing in `handoff.md` (`Users`, `Plan collection`, and `Current user` in each slot) and log the migration as an event with heading `none`. Existing plan items, discoveries, and events stay as they are.
+
 ### Changing settings
 
 The settings lines in `agents.md` are meant to be edited, by the user or by you on the user's request:
