@@ -287,6 +287,8 @@ The user can lower or raise the Priority floor, forbid cross-host take-overs, or
 
 Every agent reads the whole file. Verification is per **host**, not per agent: a discovery made on one host is checked **once** by a different host. Sessions on the same host share the same blind spots, so they do not re-review each other, and ten sessions never have to review the same finding ten times.
 
+The reason is sycophancy: a model tends to agree with whoever it is talking to — the user's framing, or the claim it is asked to confirm. A session on a different host shares neither the conversation nor the blind spots of the session that made the discovery, so its verdict is a second opinion rather than an echo. When you review, judge the evidence as if the claim were wrong until it proves otherwise; do not start from the source's conclusion.
+
 How this applies depends on `Platform mode` in `agents.md` (section 0):
 
 - `multi`: always a different host.
@@ -350,6 +352,8 @@ Every plan item derived from discoveries must include:
 - `Improvement`: the missing proof, changed condition, stronger method, or specific weakness the new test will address.
 
 Do not write only `Sources: D-B-014` and repeat the same experiment. Explain why the new attempt is materially better or different. Do not edit another agent's active plan merely because its discovery suggested a direction.
+
+This is a relay of hypotheses, not only of code. When another host's discovery (its hypothesis H1) reaches you, build your own hypothesis H2 on top of it rather than beside it: the pair (H1, H2) is a line of reasoning neither host would have produced alone, and it often yields a third hypothesis that neither would have proposed. Cite both discoveries in `Sources`, and when you take over an item keep the chain visible with `(from H-…)` in the title.
 
 ## 6. Scale workers from 2 to practical full load
 
