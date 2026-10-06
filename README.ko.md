@@ -18,6 +18,10 @@
 
 AI 에이전트로 하는 연구는 대개 같은 곳에서 무너집니다. 세션이 끝나면 맥락이 사라지고, 두 세션이 같은 실험을 반복하고, 모델 하나가 그렇다고 했다는 이유로 결론을 믿고, 지금 최고 결과가 무엇인지 아무도 정확히 모릅니다. Research Orchestrator는 Markdown 파일 네 개와 적은 수의 규칙으로 이 문제를 풀어서, 어떤 세션·플랫폼·사람이 오가도 연구가 끊기지 않게 합니다.
 
+<p align="center">
+  <img src="assets/readme/why-use.webp" alt="오케스트레이션이 없으면 맥락을 잃고, 실험을 반복하고, 모델 하나를 믿고, 현재 최고 결과가 불분명하다. Research Orchestrator를 쓰면 agents.md, plan.md, discoveries.md, handoff.md가 공유 기억, 중복 감소, 교차 확인된 발견, 명확한 현재 최고 결과와 다음 가설을 준다" width="100%">
+</p>
+
 **사람과 에이전트의 협업**
 
 - 사람과 AI 에이전트가 같은 파일로 한 프로젝트를 진행합니다. Claude Code의 `kim`, Codex의 `lee`, 읽고 설정만 고치는 세 번째 사람이 모두 같은 상태를 봅니다.
@@ -46,6 +50,10 @@ AI 에이전트로 하는 연구는 대개 같은 곳에서 무너집니다. 세
 - **코드만이 아니라 가설의 릴레이입니다.** Codex의 가설 H1이 발견이 되고 Claude Code가 그것을 이어받으면, Claude의 가설 H2가 그 위에 쌓입니다. (H1, H2)라는 쌍은 어느 플랫폼도 혼자서는 만들지 못했을 추론의 줄기이고, 거기서 어느 쪽도 혼자서는 제안하지 못했을 가설이 나옵니다. 반대 방향도 마찬가지입니다. 그래서 모든 발견은 후속 가설을 0개 이상 요구하고, 각 가설은 결합한 발견들을 인용하며, 넘겨받은 항목은 제목에 그 연결을 남깁니다.
 
 공유 노트는 썩기 쉽습니다. 비대해지고, 이미 사라진 상태를 기준으로 결론을 내리며, 실수로 넓은 영역을 닫아 버립니다. 여기서는 `plan.md`에 진행 중인 항목만 두고, 모든 사실은 한 곳에만 적히고, 현재 최고 결과는 항상 근거 발견을 인용하며, 실패한 아이디어는 영구히 금지되는 대신 실질적인 `Improvement`를 제시하면 다시 열리고, 네 파일이 어긋나는 순간 점검기가 알려 줍니다.
+
+<p align="center">
+  <img src="assets/readme/hypothesis-relay.webp" alt="근거에서 가설 H1로, 하위 가설 H1a와 H1b로 나뉘어 따로 실험되고, 교차 확인이 환각 위험을 줄이며, 결과가 근거 있는 통찰로 합쳐지고, 새 가설 H2와 H3가 뒤따른다" width="100%">
+</p>
 
 ## 핵심 워크플로
 
@@ -523,7 +531,9 @@ research-orchestrator-skill/
 │   ├── hero.svg
 │   ├── cross-host-check.svg
 │   ├── take-over.svg
-│   └── setup.svg
+│   ├── setup.svg
+│   ├── why-use.webp
+│   └── hypothesis-relay.webp
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md

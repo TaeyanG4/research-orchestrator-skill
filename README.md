@@ -16,6 +16,10 @@ It deliberately uses only **four shared Markdown files** while adding a scored h
 
 Research with AI agents usually breaks in the same places: a session ends and its context is gone, two sessions repeat the same experiment, a finding is trusted because one model said so, and nobody can tell what the current best actually is. Research Orchestrator fixes this with four plain Markdown files and a small set of rules, so the work survives any session, any platform, and any person.
 
+<p align="center">
+  <img src="assets/readme/why-use.webp" alt="Without orchestration, research loses context, repeats experiments, trusts a single model, and has no clear current best; with Research Orchestrator, agents.md, plan.md, discoveries.md, and handoff.md give shared memory, less duplication, cross-checked discoveries, and a clear current best with next hypotheses" width="100%">
+</p>
+
 **Collaboration between people and agents**
 
 - People and AI agents work on one project through the same files: `kim` on Claude Code, `lee` on Codex, and a third person who only reads and edits settings all see the same state.
@@ -44,6 +48,10 @@ Two design choices follow from how language models behave, and they are the reas
 - **A relay of hypotheses, not just of code.** When Codex's hypothesis H1 becomes a discovery and Claude Code continues it, Claude's own hypothesis H2 is built on top: the pair (H1, H2) is a line of reasoning neither platform would have produced alone, and it can yield hypotheses that neither would have proposed. The same happens in the other direction. Every discovery therefore asks for zero or more follow-ups, each citing the discoveries it combines, and a take-over keeps the chain visible in the item's title.
 
 Shared notes also tend to rot: they bloat, argue against a state that no longer exists, and close off whole areas by accident. Here `plan.md` holds only live items, every fact has one home, the current best always cites the discovery that set it, a failed idea is reopened by stating a real `Improvement` rather than banned forever, and a consistency checker reports the moment the four files disagree.
+
+<p align="center">
+  <img src="assets/readme/hypothesis-relay.webp" alt="From evidence to hypothesis H1, branched into sub-hypotheses H1a and H1b tested separately; cross-checking reduces hallucination risk, the results merge into a grounded insight, and new hypotheses H2 and H3 follow" width="100%">
+</p>
 
 ## Core workflow
 
@@ -521,7 +529,9 @@ research-orchestrator-skill/
 │   ├── hero.svg
 │   ├── cross-host-check.svg
 │   ├── take-over.svg
-│   └── setup.svg
+│   ├── setup.svg
+│   ├── why-use.webp
+│   └── hypothesis-relay.webp
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md

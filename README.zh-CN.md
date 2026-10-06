@@ -18,6 +18,10 @@
 
 用 AI 代理做研究通常在同样的地方出问题：会话结束后上下文就没了，两个会话重复同一个实验，一个结论仅因某个模型这么说就被采信，没有人能说清当前最佳结果到底是什么。Research Orchestrator 用四个纯 Markdown 文件和一小组规则解决这些问题，让工作跨越任何会话、任何平台、任何人都能延续。
 
+<p align="center">
+  <img src="assets/readme/why-use.webp" alt="没有编排时，研究会丢失上下文、重复实验、依赖单一模型、当前最佳不明；使用 Research Orchestrator 后，agents.md、plan.md、discoveries.md 和 handoff.md 带来共享记忆、更少重复、交叉检查过的发现，以及清晰的当前最佳和下一步假设" width="100%">
+</p>
+
 **人与代理的协作**
 
 - 人和 AI 代理通过同一组文件推进同一个项目：Claude Code 上的 `kim`、Codex 上的 `lee`，以及只阅读和编辑设置的第三个人，看到的都是同一状态。
@@ -46,6 +50,10 @@
 - **接力的是假设，不只是代码。** 当 Codex 的假设 H1 成为发现、Claude Code 接续它时，Claude 自己的假设 H2 建立在其上：(H1, H2) 这一对是任何一个平台都无法单独产生的推理链，并能得出任何一方都不会单独提出的假设。反方向同样成立。因此每个发现都要求零个或多个后续假设，每个假设引用它所结合的发现，而接手的条目在标题中保留这条链。
 
 共享笔记也容易腐坏：它们会膨胀、会针对已不存在的状态下结论、还会不小心关闭整片领域。在这里，`plan.md` 只保留进行中的条目，每个事实只有一个归属，当前最佳始终引用确立它的发现，失败的想法通过提出真正的 `Improvement` 重新打开而不是永久禁止，一致性检查器会在四个文件出现分歧的那一刻报告。
+
+<p align="center">
+  <img src="assets/readme/hypothesis-relay.webp" alt="从证据到假设 H1，分支为子假设 H1a 和 H1b 分别测试；交叉检查降低幻觉风险，结果合并为有依据的洞见，随后产生新假设 H2 和 H3" width="100%">
+</p>
 
 ## 核心工作流
 
@@ -523,7 +531,9 @@ research-orchestrator-skill/
 │   ├── hero.svg
 │   ├── cross-host-check.svg
 │   ├── take-over.svg
-│   └── setup.svg
+│   ├── setup.svg
+│   ├── why-use.webp
+│   └── hypothesis-relay.webp
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md
