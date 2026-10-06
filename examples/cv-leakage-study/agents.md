@@ -85,6 +85,7 @@ A dispatcher, or a session choosing a take-over item, may inspect only task ID, 
 
 This project syncs the coordination files through git and pushes automatically, so sessions on other machines and other users see the same state.
 
+- The project must already be a git repository with a remote. If it is not, never run `git init` or add a remote yourself: switch `Git sync` to `off` (edit the line and run `--reconfigure`), log the change as an event with heading `none`, and tell the user so they can set up the repository and turn sync back on.
 - Run `git pull --rebase` before editing `plan.md`, `discoveries.md`, or `handoff.md`, and before launching a heavy job (to see the latest compute claims).
 - Right after each linked change — finishing an item, a take-over, adding or removing a compute claim, adding a slot or a user, a settings change — and when closing the session, commit the coordination files you changed and push:
   `git add <changed files among agents.md plan.md discoveries.md handoff.md docs/>` then `git commit -m "ro(<agent>/<user>): <short action>"` then `git push`.

@@ -271,6 +271,16 @@ def write_if_missing(path: Path, content: str) -> str:
     return "create"
 
 
+def git_mode_for(target: Path, git: str) -> str:
+    """Git sync needs an existing repository; outside one it is switched off and reported, never created."""
+    if git == "off" or any((parent / ".git").exists() for parent in (target, *target.parents)):
+        return git
+    print(f"Notice: Git sync '{git}' was requested but {target} is not inside a git repository, "
+          "so Git sync is set to off. Create the repository (and a remote, for push) yourself, "
+          f"then run --reconfigure --git {git}. Agents never run git init.", file=sys.stderr)
+    return "off"
+
+
 def describe(settings: dict[str, str]) -> str:
     return (f"platform mode {settings['mode']}; platforms {settings['platforms']}; git sync {settings['git']}; "
             f"plan collector {settings['collector']} ({settings['limits']}); reviewer {settings['reviewer']}; "
@@ -294,6 +304,7 @@ def reconfigure(target: Path, args: argparse.Namespace) -> int:
                   "Save your edits elsewhere, then re-run with --force.", file=sys.stderr)
             return 1
     settings = build_settings(args, current, project)
+    settings["git"] = git_mode_for(target, settings["git"])
     agents_md.write_text(render_agents(settings), encoding="utf-8", newline="\n")
     print(f"[REWRITE] {agents_md}")
     print(f"Settings: {describe(settings)}")
@@ -333,6 +344,7 @@ def main() -> int:
         user = parse_user(args.user)
         name = args.name or target.name
         settings = build_settings(args, {}, name)
+        settings["git"] = git_mode_for(target, settings["git"])
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2

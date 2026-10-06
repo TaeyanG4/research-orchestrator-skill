@@ -213,7 +213,7 @@ python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 | --- | --- | --- |
 | 이름 | 한 단어, 예: `kim`, `user1` | `Users`, `Current user`, 이벤트의 `User`에 기록되어 여러 사람이 한 프로젝트를 함께 쓸 수 있음 |
 | 플랫폼 | `multi` — 여러 플랫폼 동시 사용(예: Claude Code와 Codex)<br>`single` — 한 플랫폼<br>`adaptive` — 상황에 따라 | `agents.md`가 이에 맞게 생성됨: `single`은 호스트 간 규칙을 빼고 슬롯끼리 교차 확인, `multi`는 호스트끼리 교차 확인, `adaptive`는 다른 호스트를 우선하고 없으면 다른 슬롯으로 |
-| Git 동기화 | `push` — 자동 커밋과 푸시<br>`commit` — 로컬 커밋만<br>`off` — git 사용 안 함 | `push`는 수정 전 `git pull --rebase`, 연결된 변경과 세션 종료 때마다 커밋과 푸시. 사람이나 세션이 다른 컴퓨터에서 일하면 필요 |
+| Git 동기화 | `push` — 자동 커밋과 푸시<br>`commit` — 로컬 커밋만<br>`off` — git 사용 안 함 | `push`는 수정 전 `git pull --rebase`, 연결된 변경과 세션 종료 때마다 커밋과 푸시. 사람이나 세션이 다른 컴퓨터에서 일하면 필요 프로젝트가 git 저장소가 아니면 보고한 뒤 `off`로 전환하며, 에이전트는 `git init`을 실행하지 않음. |
 | 플랜 수집기 | `off` 또는 플랫폼/모델(예: `Claude Code/sonnet`, `Codex/sol`), 그리고 적재 한도(기본 `50,5`) | 하위 에이전트가 다양한 연구 후보를 `plan.md`에 모음. 큐가 재개 한도(5)까지 줄면 수집을 시작하고 중단 한도(50)에 닿으면 멈춤 |
 | 리뷰어 | `off` 또는 플랫폼/모델(예: `Codex/sol`) | 끝난 작업의 교차 확인을 리뷰어 하위 에이전트가 맡아 메인 에이전트는 실험을 계속함 |
 | 교차 확인 대체 방식 | `wait` 또는 `same-host` | 큐가 비었는데 다른 플랫폼의 확인이 필요한 항목만 남았을 때: 그대로 두거나, 같은 플랫폼 모델로 진행(`same host —`) |

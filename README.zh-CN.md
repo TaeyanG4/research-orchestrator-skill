@@ -213,7 +213,7 @@ python <installed-skill>/scripts/init_research_orchestrator.py . -n "My Project"
 | --- | --- | --- |
 | 你的名字 | 一个词，例如 `kim`、`user1` | 记录在 `Users`、`Current user` 和每个事件的 `User` 中，让多人共用一个项目 |
 | 平台 | `multi` — 同时使用多个平台（例如 Claude Code 和 Codex）<br>`single` — 单一平台<br>`adaptive` — 视情况而定 | 据此生成 `agents.md`：`single` 去掉跨主机规则，由不同槽位交叉检查；`multi` 由不同主机交叉检查；`adaptive` 优先其他主机，没有时退回其他槽位 |
-| Git 同步 | `push` — 自动提交并推送<br>`commit` — 仅本地提交<br>`off` — 不使用 git | `push` 会在编辑前 `git pull --rebase`，并在每次关联变更和会话结束时提交并推送。多人或多台机器协作时需要 |
+| Git 同步 | `push` — 自动提交并推送<br>`commit` — 仅本地提交<br>`off` — 不使用 git | `push` 会在编辑前 `git pull --rebase`，并在每次关联变更和会话结束时提交并推送。多人或多台机器协作时需要 若项目不是 git 仓库，则报告并切换为 `off`；代理绝不运行 `git init`。 |
 | 计划收集器 | `off`，或平台/模型，例如 `Claude Code/sonnet`、`Codex/sol`；以及队列上下限（默认 `50,5`） | 子代理把多样的研究候选收集进 `plan.md`：队列降到恢复下限（5）时开始收集，达到停止上限（50）时停止 |
 | 审查者 | `off`，或平台/模型，例如 `Codex/sol` | 由审查子代理负责已完成工作的交叉检查，主代理继续做实验 |
 | 交叉检查回退 | `wait` 或 `same-host` | 队列用完、只剩需要其他平台验证的交叉检查时：保持不动，或用同平台模型执行（`same host —`） |

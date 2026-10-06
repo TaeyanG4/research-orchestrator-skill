@@ -491,7 +491,7 @@ Follow `Git sync` in `agents.md` (section 0):
   2. push right after each commit;
   3. if the push is rejected, `git pull --rebase`, keep both sides of any conflict in the coordination files (never drop another agent's lines), and push again; if a conflict touches anything else, stop and ask the user.
 
-In every mode: never force-push or rewrite history; commit only the coordination files unless the user asks to include code or results; never commit secrets, credentials, or large data. Several users on different machines need `push`; without it they cannot see each other's slots, items, or compute claims.
+In `commit` and `push` mode the project must already be a git repository (with a remote, for `push`). If it is not, never run `git init` or add a remote yourself: switch `Git sync` to `off` (edit the line in `agents.md` and run `--reconfigure`, which does this automatically), log the change as an event with heading `none`, and report it to the user so they can set up the repository and turn sync back on. In every mode: never force-push or rewrite history; commit only the coordination files unless the user asks to include code or results; never commit secrets, credentials, or large data. Several users on different machines need `push`; without it they cannot see each other's slots, items, or compute claims.
 
 ### Change linked files in the same step
 

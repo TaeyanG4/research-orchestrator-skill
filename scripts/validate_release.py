@@ -309,6 +309,7 @@ def run_checker(target: Path) -> subprocess.CompletedProcess[str]:
 def check_example(errors: list[str]) -> None:
     """The worked example must match the current template and pass the consistency checker."""
     with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / ".git").mkdir()  # git sync needs a repository; otherwise it is switched off
         result = run_init(Path(tmp), *EXAMPLE_INIT_ARGS, name=None)
         if result.returncode != 0:
             errors.append(f"example: initializer failed: {result.stderr.strip()}")
@@ -339,6 +340,7 @@ def run_init(target: Path, *args: str, name: str | None = "Validation Project") 
 def check_initializer(errors: list[str]) -> None:
     outputs = ["agents.md", "plan.md", "discoveries.md", "handoff.md"]
     with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / ".git").mkdir()
         cases = {"default": ([], ["A"]), "count": (["--agents", "3"], ["A", "B", "C"]),
                  "list": (["--agents", "a, b, aa"], ["A", "B", "AA"])}
         for label, (args, expected) in cases.items():
@@ -404,6 +406,7 @@ def check_settings_modes(errors: list[str]) -> None:
     """Every platform/git combination renders cleanly and passes the checker; --reconfigure is safe."""
     combos = [("single", "Claude Code"), ("multi", "Claude Code, Codex"), ("adaptive", "Claude Code, Codex")]
     with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / ".git").mkdir()
         for mode, platforms in combos:
             for git in ("push", "commit", "off"):
                 target = Path(tmp) / f"{mode}-{git}"
@@ -457,6 +460,20 @@ def check_settings_modes(errors: list[str]) -> None:
         if run_checker(target).returncode != 0:
             errors.append("check_project.py fails after applying directly edited settings")
 
+    # Outside a git repository, git sync is reported and switched off; nothing is created.
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "no-repo"
+        target.mkdir()
+        result = run_init(target, "--git", "push")
+        agents = (target / "agents.md").read_text(encoding="utf-8") if (target / "agents.md").exists() else ""
+        if result.returncode != 0 or "- Git sync: off" not in agents or "not inside a git repository" not in result.stderr:
+            errors.append("initializer outside a git repository must switch Git sync to off and say so")
+        if any(p.name == ".git" for p in Path(tmp).rglob(".git")):
+            errors.append("initializer created a git repository; it must never run git init")
+        again = run_init(target, "--reconfigure", "--git", "commit", name=None)
+        if again.returncode != 0 or "- Git sync: off" not in (target / "agents.md").read_text(encoding="utf-8"):
+            errors.append("--reconfigure outside a git repository must keep Git sync off")
+
 
 def main() -> int:
     # Error messages can quote CJK README text; never crash on a legacy console code page.
@@ -493,6 +510,7 @@ def main() -> int:
     print("- every platform mode (single/multi/adaptive) x git mode (push/commit/off) renders and passes")
     print("- --reconfigure switches settings, applies directly edited settings, and refuses to overwrite hand-edited rules")
     print("- collector, reviewer, queue limits, and fallback settings are validated")
+    print("- outside a git repository, git sync is reported and switched off; no repository is created")
     print("- discoveries record Host and Cross-check; reviews come from a different host")
     print("- Resource values are CPU/GPU/EITHER (plan) and CPU/GPU/Other/none (handoff)")
     print("- agent names and IDs follow A-Z, AA-ZZ and H-<Agent>-NN / D-<Agent>-NNN")
