@@ -14,15 +14,31 @@ It deliberately uses only **four shared Markdown files** while adding a scored h
 
 ## Why use it?
 
-- Resume long-running research across fresh sessions.
-- Let multiple agents explore independently without sharing unfinished plans.
-- Keep `plan.md` small by removing completed work.
-- Never queue the same idea twice: every completed experiment leaves a discovery — positive, negative, or inconclusive — and every new item is checked against discoveries and other agents' queues.
-- Turn experiment results into reusable shared discoveries.
-- Have a different host check each finding once — Codex's discovery is verified by Claude Code, and vice versa — instead of every session re-reviewing it.
-- Preserve promising but incomplete findings with `HOLD`.
-- Re-open discoveries as stronger hypotheses with explicit evidence and improvements.
-- Scale from two workers to the machine's practical full load.
+Research with AI agents usually breaks in the same places: a session ends and its context is gone, two sessions repeat the same experiment, a finding is trusted because one model said so, and nobody can tell what the current best actually is. Research Orchestrator fixes this with four plain Markdown files and a small set of rules, so the work survives any session, any platform, and any person.
+
+<p align="center">
+  <img src="assets/readme/why.svg" alt="People and AI agents on different platforms share four files and run one loop: collect hypotheses, run experiments, verify each result once, learn from every result, and plan what to test next" width="100%">
+</p>
+
+**Collaboration between people and agents**
+
+- People and AI agents work on one project through the same files: `kim` on Claude Code, `lee` on Codex, and a third person who only reads and edits settings all see the same state.
+- Agent slots (`A`, `B`, ...) belong to no platform, model, or person. Any host or user can resume any slot; who did what is recorded, never guessed.
+- A different platform checks each finding once — Codex's discovery is verified by Claude Code, and vice versa — so a result never rests on a single model's blind spots. A reviewer sub-agent can take this over.
+- Git sync shares the files across machines; compute claims stop two sessions from launching on the same GPU.
+
+**Sustainable, automated research**
+
+- The loop keeps running: a collector sub-agent refills the queue with diverse, de-duplicated hypotheses when it runs low, agents run what fits the free compute, and every result — positive, negative, or inconclusive — becomes a discovery that plans the next test.
+- Nothing is repeated and nothing is lost: every completed experiment leaves exactly one discovery, every new item is checked against them, and the current best always cites the discovery that set it.
+- An idle agent looks for work in a fixed order (cross-checks, take-over, collection) and a blocked one waits productively; it never invents low-value work to stay busy.
+
+**Customization and engineering**
+
+- Customize the loop in `agents.md`: platforms, git sync, collector and reviewer models, queue limits, and the cross-check fallback are plain settings lines that the user can edit at any time.
+- Agentic engineering: the rules are written for agents to follow unattended — what to read, what to touch, when to ask — rather than for a human to supervise.
+- Loop engineering: the collect → run → verify → learn cycle, its limits, and its stop conditions are explicit and tunable.
+- Harness engineering: `check_project.py` verifies that the four files agree before a session starts new work, and `validate_release.py` keeps the skill itself consistent; both catch drift that would otherwise accumulate silently.
 
 ## Core workflow
 
@@ -499,7 +515,9 @@ research-orchestrator-skill/
 ├── assets/readme/
 │   ├── hero.svg
 │   ├── cross-host-check.svg
-│   └── take-over.svg
+│   ├── take-over.svg
+│   ├── setup.svg
+│   └── why.svg
 ├── examples/cv-leakage-study/
 │   ├── agents.md
 │   ├── plan.md
