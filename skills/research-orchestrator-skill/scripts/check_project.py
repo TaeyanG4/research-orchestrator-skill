@@ -25,7 +25,8 @@ PLAN_FIELDS = [
     "Sources", "Hypothesis", "Evidence", "Improvement", "Impact", "Information", "Confidence",
     "Unblock", "Diversity", "Cost", "Priority", "Resource", "Parallel", "Other", "Next test",
 ]
-DISCOVERY_FIELDS = ["Source", "Host", "Cross-check", "Finding", "Evidence", "Implication", "Reviews"]
+DISCOVERY_FIELDS = ["Source", "Host", "User", "Date", "Cross-check", "Finding", "Evidence", "Implication", "Reviews"]
+DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 EVENT_FIELDS = [
     "Host", "User", "Action", "Result", "Artifacts", "Discovery updates", "Review verdict",
     "Resource", "Other executor", "New plan items",
@@ -57,6 +58,7 @@ class Block:
     key: str
     line: int
     title: str = ""
+    heading_date: str = ""
     owner: str = ""
     fields: dict[str, str] = field(default_factory=dict)
     order: list[str] = field(default_factory=list)
@@ -194,7 +196,8 @@ class Checker:
             elif re.match(r"^### \d{4}-\d{2}-\d{2} \d{2}:\d{2} — ", line):
                 parts = line[4:].split(" — ")
                 block = Block(key=parts[2].strip() if len(parts) > 2 else "", line=i + 1,
-                              owner=parts[1].strip() if len(parts) > 1 else "")
+                              owner=parts[1].strip() if len(parts) > 1 else "",
+                              heading_date=parts[0].strip()[:10])
                 i = collect_fields(lines, i + 1, block)
                 self.events.append(block)
                 continue
@@ -326,11 +329,25 @@ class Checker:
                     self.problem(f"plan.md:{item.line}", f"{item.key} cites {disc_id}, which is not in discoveries.md", item.owner)
 
     def check_discoveries(self) -> None:
+        self.first_mention: dict[str, str] = {}
+        for event in self.events:
+            day = event.heading_date
+            for name in ("Discovery updates", "Review verdict"):
+                for disc_id in D_ID.findall(event.fields.get(name, "")):
+                    if day and (disc_id not in self.first_mention or day < self.first_mention[disc_id]):
+                        self.first_mention[disc_id] = day
         for disc in self.discoveries.values():
             where = f"discoveries.md:{disc.line}"
             if disc.order != DISCOVERY_FIELDS:
                 missing = [f for f in DISCOVERY_FIELDS if f not in disc.order]
                 self.problem(where, f"{disc.key} fields do not match the discovery format (missing: {missing or 'none'}; check order)", disc.owner)
+            date = disc.fields.get("Date")
+            if date is None:
+                hint = self.first_mention.get(disc.key)
+                suggestion = f"; the handoff log first mentions it on {hint}" if hint else "; use 'unknown' if it cannot be recovered"
+                self.problem(where, f"{disc.key} has no 'Date' line after User{suggestion}", disc.owner)
+            elif date != "unknown" and not DATE.match(date):
+                self.problem(where, f"{disc.key} Date '{date}' must be YYYY-MM-DD or 'unknown'", disc.owner)
             raw_state = disc.fields.get("Cross-check", "")
             state = raw_state.split(" ", 1)[0]
             if state not in CROSS_CHECK_STATES:
@@ -508,7 +525,13 @@ class Checker:
             if user and user not in users:
                 self.problem(where, f"event user '{user}' is not listed in Users", event.owner)
         for disc in self.discoveries.values():
-            check_host(disc.fields.get("Host", ""), f"discoveries.md:{disc.line}", disc.owner)
+            where = f"discoveries.md:{disc.line}"
+            check_host(disc.fields.get("Host", ""), where, disc.owner)
+            user = disc.fields.get("User")
+            if user is None:
+                self.problem(where, f"{disc.key} has no 'User' line after Host (use 'unknown' if it cannot be recovered)", disc.owner)
+            elif user != "unknown" and user not in users:
+                self.problem(where, f"{disc.key} user '{user}' is not listed in Users", disc.owner)
 
     def check_collection(self) -> None:
         value = self.shared.get("Plan collection")

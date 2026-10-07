@@ -12,6 +12,8 @@ Use this exact format:
 ## D-B-001 — Short title
 - Source: B
 - Host: Codex
+- User: lee
+- Date: 2026-10-05
 - Cross-check: VERIFIED
 - Finding: ...
 - Evidence: ...
@@ -19,6 +21,8 @@ Use this exact format:
 - Reviews:
   - Claude Code (A): CLOSED — reproduced independently with ...
 ```
+
+`Host` and `User` are the platform and the person of the session that made the discovery, and `Date` is the day it was first recorded (`YYYY-MM-DD`). None of them change when the discovery is revised or reviewed. Use `unknown` only for discoveries migrated from older notes whose user or date cannot be recovered.
 
 `Cross-check` states:
 
@@ -57,6 +61,8 @@ Do not archive this file merely because it grows; merge duplicate discoveries in
 ## D-B-001 — Random CV leaks customer groups
 - Source: B
 - Host: Codex
+- User: lee
+- Date: 2026-10-05
 - Cross-check: VERIFIED
 - Finding: rows from the same customer_id land in both training and validation folds under random KFold
 - Evidence: random KFold CV 0.9162 vs GroupKFold CV 0.9027; reproduce with experiments/e001_group_check.py
@@ -67,6 +73,8 @@ Do not archive this file merely because it grows; merge duplicate discoveries in
 ## D-A-001 — Exact duplicates explain most of the gap
 - Source: A
 - Host: Claude Code
+- User: kim
+- Date: 2026-10-05
 - Cross-check: REVIEWING Codex (B)
 - Finding: removing exact duplicate rows shrinks the random/group CV gap from 0.0135 to 0.0041
 - Evidence: random/group CV 0.9071 / 0.9030 after deduplication; reproduce with experiments/e002_dedup.py
@@ -76,6 +84,8 @@ Do not archive this file merely because it grows; merge duplicate discoveries in
 ## D-C-001 — Encoders are fit before the fold split
 - Source: C
 - Host: Claude Code
+- User: kim
+- Date: 2026-10-05
 - Cross-check: PENDING
 - Finding: features/encode.py fits every categorical encoder on the full training set before the GroupKFold split
 - Evidence: code audit of features/encode.py; notes/encoding_audit.md
@@ -85,6 +95,8 @@ Do not archive this file merely because it grows; merge duplicate discoveries in
 ## D-A-002 — Global target encoding does not hold under GroupKFold
 - Source: A
 - Host: Claude Code
+- User: kim
+- Date: 2026-10-05
 - Cross-check: PENDING
 - Finding: global target encoding does not hold under GroupKFold on deduplicated data (CV 0.9027 → 0.8991)
 - Evidence: GroupKFold CV 0.8991 vs 0.9027 without encoding; reproduce with experiments/e003_target_encoding.py

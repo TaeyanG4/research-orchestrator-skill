@@ -35,7 +35,7 @@ PLAN_FIELDS = [
     "Diversity", "Cost", "Priority", "Resource",
     "Parallel", "Other", "Next test",
 ]
-DISCOVERY_FIELDS = ["Source", "Host", "Cross-check", "Finding", "Evidence", "Implication", "Reviews"]
+DISCOVERY_FIELDS = ["Source", "Host", "User", "Date", "Cross-check", "Finding", "Evidence", "Implication", "Reviews"]
 HANDOFF_FIELDS = [
     "Host", "User", "Action", "Result", "Artifacts", "Discovery updates",
     "Review verdict", "Resource", "Other executor", "New plan items",

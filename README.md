@@ -384,6 +384,8 @@ Do not simply rerun an old idea under a new task ID.
 ## D-B-014 — Random CV may leak groups
 - Source: B
 - Host: Codex
+- User: lee
+- Date: 2026-10-05
 - Cross-check: HOLD
 - Finding: duplicated groups cross random folds
 - Evidence: e014_group_check.py; random CV 0.9162 vs group CV 0.9027

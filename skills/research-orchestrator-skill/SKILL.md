@@ -306,6 +306,8 @@ Use this exact shape:
 ## D-B-014 — Short title
 - Source: B
 - Host: Codex
+- User: lee
+- Date: 2026-10-05
 - Cross-check: VERIFIED
 - Finding: ...
 - Evidence: ...
@@ -313,6 +315,8 @@ Use this exact shape:
 - Reviews:
   - Claude Code (A): CLOSED — reproduced independently with ...
 ```
+
+`Host` and `User` are the platform and the person of the session that made the discovery; like `Source`, they never change afterwards. `Date` is the day the discovery was first recorded (`YYYY-MM-DD`); it does not change when the discovery is revised or reviewed. For discoveries migrated from older notes whose user or date cannot be recovered, write `unknown`.
 
 `Cross-check` is the discovery's verification state:
 

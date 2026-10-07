@@ -12,6 +12,8 @@ Use this exact format:
 ## D-B-001 — Short title
 - Source: B
 - Host: Codex
+- User: lee
+- Date: 2026-10-05
 - Cross-check: VERIFIED
 - Finding: ...
 - Evidence: ...
@@ -19,6 +21,8 @@ Use this exact format:
 - Reviews:
   - Claude Code (A): CLOSED — reproduced independently with ...
 ```
+
+`Host` and `User` are the platform and the person of the session that made the discovery, and `Date` is the day it was first recorded (`YYYY-MM-DD`). None of them change when the discovery is revised or reviewed. Use `unknown` only for discoveries migrated from older notes whose user or date cannot be recovered.
 
 `Cross-check` states:
 
